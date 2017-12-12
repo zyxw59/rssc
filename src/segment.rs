@@ -58,6 +58,7 @@ impl Segment {
         let mut iter = s.chars().nfd();
         // iterate using `while let` instead of `for` so that we can skip within the iterator
         while let Some(c) = iter.next() {
+            // if the buffer is empty, initialize it
             if buf.symbol == "" {
                 buf = Segment::from(c);
                 continue;

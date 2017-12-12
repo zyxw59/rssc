@@ -32,7 +32,7 @@ PatternRepeat: Pattern = {
 };
 
 PatternToken: Pattern = {
-    "." => Pattern::AnyChar,
+    "." => Pattern::Any,
     "#" => Pattern::WordBoundary,
     CATEGORY => Pattern::parse_category(<>).unwrap(),
     GROUP_START <Pattern> ")" => <>,

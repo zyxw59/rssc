@@ -19,18 +19,30 @@ pub struct Environment {
 //    unafter: Pattern,
 }
 
+/// Almost a regular expression
 #[derive(Debug)]
 pub enum Pattern {
+    /// Matches an empty string, i.e. zero segments.
     Empty,
+    /// Matches a literal string of segments.
     Literal(String),
-    AnyChar,
+    /// Matches any single segment.
+    Any,
+    /// Matches a word boundary.
     WordBoundary,
+    /// Matches an element of a category, optionally associating the index of the matched element
+    /// with a slot for further selection or replacement.
     Category {
+        /// The name of the category.
         name: String,
+        /// The slot to save the matched index to.
         num: Option<usize>
     },
+    /// Matches a repeating pattern
     Repeat(Box<Pattern>, Repeater),
+    /// Matches a concatenation of two patterns
     Concat(Vec<Pattern>),
+    /// Matches one of multiple patterns
     Alternate(Vec<Pattern>),
 }
 
@@ -52,7 +64,7 @@ impl fmt::Display for Pattern {
         match *self {
             Empty => write!(f, ""),
             Literal(ref s) => write!(f, "{}", s),
-            AnyChar => write!(f, "."),
+            Any => write!(f, "."),
             WordBoundary => write!(f, "#"),
             Category{ref name, num: Some(num)} => write!(f, "{{{}:{}}}", num, name),
             Category{ref name, num: None} => write!(f, "{{{}}}", name),
