@@ -1,9 +1,12 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
+extern crate unicode_categories;
+extern crate unicode_normalization;
 
 pub mod re;
 pub mod rssc;
 pub mod ast;
+pub mod segment;
 
 use std::io::{self, BufRead};
 
