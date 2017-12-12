@@ -11,7 +11,7 @@ pub trait Token: cmp::Eq + fmt::Debug + hash::Hash {
 impl Token for char {
     /// Returns `false` if the character is whitespace, `true` otherwise.
     fn is_word(&self) -> bool {
-        return !self.is_whitespace();
+        !self.is_whitespace()
     }
 }
 

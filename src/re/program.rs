@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::ops::Index;
 
-use token::Token;
+use re::token::Token;
 
 /// Type for indexing into a program
 pub type InstrPtr = usize;

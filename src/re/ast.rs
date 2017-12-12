@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use token::Token;
-use program;
+use re::token::Token;
+use re::program;
 
 /// A regular expression
 #[derive(Debug)]
@@ -29,7 +29,7 @@ pub enum Regex<T: Token> {
 impl<T: Token> Regex<T> {
     /// Compiles a regular expression into a program to be executed.
     pub fn compile(self) -> program::Program<T> {
-        use program::Instr::*;
+        use self::program::Instr::*;
         // first, match /.*?/ to find earliest start of match, and save match point
         let mut v = vec![JSplit(3), Any, Jump(0), Save(0)];
         let mut num_captures = 0;
@@ -46,7 +46,7 @@ impl<T: Token> Regex<T> {
     fn compile_partial(self,
                        v: &mut Vec<program::Instr<T>>,
                        num_captures: &mut usize) {
-        use program::Instr::*;
+        use self::program::Instr::*;
         match self {
             Regex::Empty => {},
             Regex::Literal(toks) => {

@@ -29,12 +29,7 @@ pub enum Pattern {
         name: String,
         num: Option<usize>
     },
-    Repeat {
-        pat: Box<Pattern>,
-        rep: Repeater,
-        greedy: bool,
-    },
-    Group(Box<Pattern>),
+    Repeat(Box<Pattern>, Repeater),
     Concat(Vec<Pattern>),
     Alternate(Vec<Pattern>),
 }
@@ -61,54 +56,29 @@ impl fmt::Display for Pattern {
             WordBoundary => write!(f, "#"),
             Category{ref name, num: Some(num)} => write!(f, "{{{}:{}}}", num, name),
             Category{ref name, num: None} => write!(f, "{{{}}}", name),
-            Repeat{ref pat, ref rep, greedy: true} => write!(f, "{}{}", pat, rep),
-            Repeat{ref pat, ref rep, greedy: false} => write!(f, "{}{}?", pat, rep),
+            Repeat(ref pat, ref rep) => write!(f, "{}{}", pat, rep),
             Concat(ref v) =>
                 write!(f, "{}", v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("")),
             Alternate(ref v) =>
                 write!(f, "{}", v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("|")),
-            Group(ref p) => write!(f, "(?:{})", p),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy)]
 pub enum Repeater {
-    ZeroOrOne,
-    ZeroOrMore,
-    OneOrMore,
-    Range {
-        min: usize,
-        max: Option<usize>,
-    },
-}
-
-impl Repeater {
-    pub fn parse_range(s: &str) -> Option<Repeater> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^\{([0-9]+)(?:,([0-9]*))?\}\??$").unwrap();
-        }
-        if let Some(caps) = RE.captures(s) {
-            let min = usize::from_str(caps.get(1).unwrap().as_str()).unwrap();
-            match caps.get(2) {
-                Some(m) => Some(Repeater::Range{min, max: usize::from_str(m.as_str()).ok()}),
-                None => Some(Repeater::Range{min, max: Some(min)}),
-            }
-        } else {
-            None
-        }
-    }
+    ZeroOrOne(bool),
+    ZeroOrMore(bool),
+    OneOrMore(bool),
 }
 
 impl fmt::Display for Repeater {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Repeater::*;
         match *self {
-            ZeroOrOne => write!(f, "?"),
-            ZeroOrMore => write!(f, "*"),
-            OneOrMore => write!(f, "+"),
-            Range{min, max: Some(max)} => write!(f, "{{{},{}}}", min, max),
-            Range{min, max: None} => write!(f, "{{{},}}", min),
+            ZeroOrOne(greedy) => write!(f, "?{}", if greedy {""} else {"?"}),
+            ZeroOrMore(greedy) => write!(f, "*{}", if greedy {""} else {"?"}),
+            OneOrMore(greedy) => write!(f, "+{}", if greedy {""} else {"?"}),
         }
     }
 }
