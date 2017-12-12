@@ -32,11 +32,14 @@ fn test_combine() {
 /// A phonological segment
 #[derive(Debug, Eq, Hash, PartialEq)]
 struct Segment {
+    /// The string representation of the segment
     symbol: String,
+    /// Whether or not the segment is whitespace
     whitespace: bool,
 }
 
 impl Segment {
+    /// Generates a new empty segment
     fn new() -> Segment {
         Segment {
             symbol: String::from(""),
@@ -44,8 +47,8 @@ impl Segment {
         }
     }
 
-    /// Parses a string to produce a vector of `Segments`
-    fn parse_string(s: String) -> Vec<Segment> {
+    /// Parses a string to produce a vector of `Segment`s
+    pub fn parse_string(s: String) -> Vec<Segment> {
         // this wil over-allocate if there are multi-character segments, but it's faster than
         // repeatedly growing
         let mut v = Vec::with_capacity(s.len());
@@ -100,6 +103,7 @@ impl Segment {
 
 
 impl convert::From<char> for Segment {
+    /// Generates a `Segment` corresponding to the given `char`
     fn from(c: char) -> Segment {
         Segment {
             symbol: c.to_string(),
@@ -117,6 +121,7 @@ impl Token for Segment {
 }
 
 impl fmt::Display for Segment {
+    /// Displays the symbol
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         self.symbol.fmt(f)
     }
@@ -125,9 +130,10 @@ impl fmt::Display for Segment {
 /// Checks if a character is a base character or a modifier. A character is considered a modifier
 /// if it is in one of the following unicode classes:
 /// - Lm (Letter, Modifier)
+/// - Mc (Mark, Spacing Combining)
+/// - Me (Mark, Enclosing)
 /// - Mn (Mark, Non-Spacing)
 /// - Sk (Symbol, Modifier)
-/// - Mc (Mark, Spacing Combining)
 /// Or, if it is a superscript or subscript
 fn is_modifier(c: char) -> bool {
     // check against superscript 1, 2, and 3
@@ -136,9 +142,8 @@ fn is_modifier(c: char) -> bool {
         || ('\u{2070}' <= c && c <= '\u{209f}')
         // otherwise, check if c is in the named classes
         || c.is_letter_modifier()
-        || c.is_mark_nonspacing()
+        || c.is_mark()
         || c.is_symbol_modifier()
-        || c.is_mark_spacing_combining()
 }
 
 /// Checks if a character is a modifier combining two characters
