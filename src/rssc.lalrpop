@@ -1,0 +1,85 @@
+use ast::{Pattern, Repeater};
+
+grammar;
+
+pub Pattern: Pattern = {
+    PatternConcat,
+    <v: (<PatternConcat> "|")+> <e: PatternConcat> => {
+        let mut v = v;
+        v.push(e);
+        Pattern::Alternate(v)
+    },
+};
+
+PatternConcat: Pattern = {
+    PatternRepeat,
+    <v: PatternRepeat+> <e: PatternRepeat> => {
+        let mut v = v;
+        v.push(e);
+        Pattern::Concat(v)
+    },
+    => Pattern::Empty,
+};
+
+PatternRepeat: Pattern = {
+    PatternToken,
+    <PatternToken> "?" => Pattern::Repeat {
+        pat: Box::new(<>),
+        rep: Repeater::ZeroOrOne,
+        greedy: true,
+    },
+    <PatternToken> "*" => Pattern::Repeat {
+        pat: Box::new(<>),
+        rep: Repeater::ZeroOrMore,
+        greedy: true,
+    },
+    <PatternToken> "+" => Pattern::Repeat {
+        pat: Box::new(<>),
+        rep: Repeater::OneOrMore,
+        greedy: true,
+    },
+    <pat: PatternToken> <rep: REP_RANGE> => Pattern::Repeat {
+        pat: Box::new(pat),
+        rep: Repeater::parse_range(rep).unwrap(),
+        greedy: true,
+    },
+    <PatternToken> "??" => Pattern::Repeat {
+        pat: Box::new(<>),
+        rep: Repeater::ZeroOrOne,
+        greedy: false,
+    },
+    <PatternToken> "*?" => Pattern::Repeat {
+        pat: Box::new(<>),
+        rep: Repeater::ZeroOrMore,
+        greedy: false,
+    },
+    <PatternToken> "+?" => Pattern::Repeat {
+        pat: Box::new(<>),
+        rep: Repeater::OneOrMore,
+        greedy: false,
+    },
+    <pat: PatternToken> <rep: REP_RANGE_L> => Pattern::Repeat {
+        pat: Box::new(pat),
+        rep: Repeater::parse_range(rep).unwrap(),
+        greedy: false,
+    },
+};
+
+PatternToken: Pattern = {
+    "." => Pattern::AnyChar,
+    "#" => Pattern::WordBoundary,
+    CATEGORY => Pattern::parse_category(<>).unwrap(),
+    GROUP_START <Pattern> ")" => Pattern::Group(Box::new(<>)),
+    LITERALS => Pattern::Literal(String::from(<>)),
+};
+
+match {
+    r"\((\?:)?" => GROUP_START,
+    r"\{[0-9]+(,[0-9]*)?\}" => REP_RANGE,
+    r"\{[0-9]+(,[0-9]*)?\}\?" => REP_RANGE_L,
+} else {
+    r"\{([0-9]+:)?\w+\}" => CATEGORY,
+    r"([^.#{}()|?*+\\]|\\[.#{}()|?*+\\])+" => LITERALS,
+    _
+}
+
