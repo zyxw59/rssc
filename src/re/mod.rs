@@ -5,7 +5,7 @@ mod tests {
 
     #[test]
     fn program() {
-        use program::Instr::*;
+        use self::program::Instr::*;
         // /(ab?)(b?c)\b/
         let prog = vec![
             // 0: *? quantifier
@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn ast() {
-        use ast::Regex::*;
+        use self::ast::Regex::*;
         // /(ab?)(b?c)a\b/
         let tree = Concat(vec![
             Capture(Box::new(Concat(vec![

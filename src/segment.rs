@@ -6,11 +6,34 @@ use unicode_normalization::UnicodeNormalization;
 
 use re::token::Token;
 
+#[test]
+fn test_decompose() {
+    // U+E1
+    let s1 = String::from("ábc");
+    // U+61 U+0301
+    let s2 = String::from("ábc");
+    assert_eq!(Segment::parse_string(s1), Segment::parse_string(s2));
+}
+
+#[test]
+fn test_combine() {
+    let s = String::from("t͜ʃa");
+    let seg1 = Segment {
+        symbol: String::from("t͜ʃ"),
+        whitespace: false,
+    };
+    let seg2 = Segment {
+        symbol: String::from("a"),
+        whitespace: false,
+    };
+    assert_eq!(Segment::parse_string(s), vec![seg1, seg2]);
+}
+
 /// A phonological segment
-#[derive(Debug,Eq,Hash)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 struct Segment {
     symbol: String,
-    whitespace: bool;
+    whitespace: bool,
 }
 
 impl Segment {
@@ -26,11 +49,16 @@ impl Segment {
         // this wil over-allocate if there are multi-character segments, but it's faster than
         // repeatedly growing
         let mut v = Vec::with_capacity(s.len());
+        // initialize buffer to store segments
         let mut buf = Segment::new();
         // perform canonical decomposition
         let mut iter = s.chars().nfd();
         // iterate using `while let` instead of `for` so that we can skip within the iterator
         while let Some(c) = iter.next() {
+            if buf.symbol == "" {
+                buf = Segment::from(c);
+                continue;
+            }
             if is_modifier(c) {
                 if buf.whitespace {
                     // if buf is whitespace, push it and start a new buffer
@@ -99,21 +127,21 @@ impl fmt::Display for Segment {
 /// - Lm (Letter, Modifier)
 /// - Mn (Mark, Non-Spacing)
 /// - Sk (Symbol, Modifier)
-/// Or, if it is a superscript or subscript 
+/// - Mc (Mark, Spacing Combining)
+/// Or, if it is a superscript or subscript
 fn is_modifier(c: char) -> bool {
     // check against superscript 1, 2, and 3
-    if c == 0xb9 || c == 0xb2 || c == 0xb3 {
-        return true;
-    }
-    // check against superscripts and subscripts block
-    if 0x2070 <= c && c <= 0x209f {
-        return true;
-    }
-    // otherwise, check if c is in the named classes
-    c.is_letter_modifier() || c.is_mark_nonspacing() || c.is_symbol_modifier()
+    c == '\u{b9}' || c == '\u{b2}' || c == '\u{b3}'
+        // check against superscripts and subscripts block
+        || ('\u{2070}' <= c && c <= '\u{209f}')
+        // otherwise, check if c is in the named classes
+        || c.is_letter_modifier()
+        || c.is_mark_nonspacing()
+        || c.is_symbol_modifier()
+        || c.is_mark_spacing_combining()
 }
 
 /// Checks if a character is a modifier combining two characters
 fn is_combining_double(c: char) -> bool {
-    0x035c <= c && c <= 0x0362
+    '\u{035c}' <= c && c <= '\u{0362}'
 }

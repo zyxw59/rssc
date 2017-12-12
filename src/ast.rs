@@ -65,7 +65,7 @@ impl fmt::Display for Pattern {
     }
 }
 
-#[derive(Debug, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Repeater {
     ZeroOrOne(bool),
     ZeroOrMore(bool),
