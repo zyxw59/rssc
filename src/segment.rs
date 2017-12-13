@@ -9,15 +9,15 @@ use re::token::Token;
 #[test]
 fn test_decompose() {
     // U+E1
-    let s1 = String::from("ábc");
+    let s1 = "ábc";
     // U+61 U+0301
-    let s2 = String::from("ábc");
+    let s2 = "ábc";
     assert_eq!(Segment::parse_string(s1), Segment::parse_string(s2));
 }
 
 #[test]
 fn test_combine() {
-    let s = String::from("t͜ʃa");
+    let s = "t͜ʃa";
     let seg1 = Segment {
         symbol: String::from("t͜ʃ"),
         whitespace: false,
@@ -48,7 +48,8 @@ impl Segment {
     }
 
     /// Parses a string to produce a vector of `Segment`s
-    pub fn parse_string(s: String) -> Vec<Segment> {
+    pub fn parse_string<S: Into<String>>(s: S) -> Vec<Segment> {
+        let s = s.into();
         // this wil over-allocate if there are multi-character segments, but it's faster than
         // repeatedly growing
         let mut v = Vec::with_capacity(s.len());

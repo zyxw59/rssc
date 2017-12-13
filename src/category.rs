@@ -21,7 +21,10 @@ pub struct Category {
 
 impl Category {
     /// Constructs a category from a name and a vector of elements
-    pub fn new(name: String, elements: Vec<String>) -> Category {
+    pub fn new<T1, T2>(name: T1, elements: Vec<T2>) -> Category where
+    T1: Into<String>,
+    T2: Into<String> {
+        let name = name.into();
         let n = elements.len();
         // if all elements are length 1, we can use a `Set` instruction to match the category,
         // otherwise we must use an `Alternate` instruction.
@@ -39,6 +42,7 @@ impl Category {
         // iterate over elements
         for el in els {
             let mut e = Vec::new();
+            let el = el.into();
             // Don't parse "0" as a segment (it represents the empty string)
             if el != "0" {
                 e = Segment::parse_string(el);
