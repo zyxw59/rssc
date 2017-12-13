@@ -6,6 +6,7 @@ extern crate unicode_normalization;
 pub mod re;
 pub mod rssc;
 pub mod ast;
+pub mod category;
 pub mod segment;
 
 use std::io::{self, BufRead};

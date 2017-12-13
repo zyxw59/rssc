@@ -30,8 +30,8 @@ fn test_combine() {
 }
 
 /// A phonological segment
-#[derive(Debug, Eq, Hash, PartialEq)]
-struct Segment {
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct Segment {
     /// The string representation of the segment
     symbol: String,
     /// Whether or not the segment is whitespace
