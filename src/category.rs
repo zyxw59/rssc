@@ -21,16 +21,18 @@ pub struct Category {
 
 impl Category {
     /// Constructs a category from a name and a vector of elements
-    pub fn new<T1, T2>(name: T1, elements: Vec<T2>) -> Category where
+    pub fn new<T1, T2, I>(name: T1, elements: I) -> Category where
     T1: Into<String>,
-    T2: Into<String> {
+    T2: Into<String>,
+    I: IntoIterator<Item=T2> {
         let name = name.into();
-        let n = elements.len();
+        let els = elements.into_iter();
+        let n = els.size_hint();
+        // take upper bound on size hint if present, else lower bound
+        let n = n.1.unwrap_or(n.0);
         // if all elements are length 1, we can use a `Set` instruction to match the category,
         // otherwise we must use an `Alternate` instruction.
         let mut can_use_set = true;
-        // rename input elements vector
-        let els = elements;
         // new element vector
         let mut elements = Vec::with_capacity(n);
         // indices map
@@ -97,22 +99,22 @@ struct SortKey<T> {
     pub value: T,
 }
 
-impl<T> cmp::PartialEq for SortKey<T> {
-    fn eq(&self, other: &SortKey<T>) -> bool {
+impl<T, U> cmp::PartialEq<SortKey<U>> for SortKey<T> {
+    fn eq(&self, other: &SortKey<U>) -> bool {
         self.key == other.key
     }
 }
 
 impl<T> cmp::Eq for SortKey<T> {}
 
-impl<T> cmp::Ord for SortKey<T> {
-    fn cmp(&self, other: &SortKey<T>) -> cmp::Ordering {
-        self.key.cmp(&other.key)
+impl<T, U> cmp::PartialOrd<SortKey<U>> for SortKey<T> {
+    fn partial_cmp(&self, other: &SortKey<U>) -> Option<cmp::Ordering> {
+        Some(self.key.cmp(&other.key))
     }
 }
 
-impl<T> cmp::PartialOrd for SortKey<T> {
-    fn partial_cmp(&self, other: &SortKey<T>) -> Option<cmp::Ordering> {
-        Some(self.key.cmp(&other.key))
+impl<T> cmp::Ord for SortKey<T> {
+    fn cmp(&self, other: &SortKey<T>) -> cmp::Ordering {
+        self.key.cmp(&other.key)
     }
 }
