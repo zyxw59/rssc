@@ -1,0 +1,57 @@
+S => ∅ | Statement '\n' S
+
+Statement => CategoryDef | Rule
+
+CategoryDef => CategoryName '=' CategoryElements
+
+CategoryName => Ident
+
+Ident => IdentToken | IdentToken Ident
+
+IdentToken => <terminal>
+
+CategoryElements => ∅ | CategoryElement ' ' CategoryElements
+
+CategoryElement => '0' | String
+
+String => ∅ | Token String | Category String
+
+Token => <terminal>
+
+Category => '{' CategoryName CategoryIndex '}'
+
+CategoryIndex => ∅ | ':' Index
+
+Index => Digit | Digit Index
+
+Digit => '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+Rule => Match '>' Replace Environment
+
+Match => '0' | Regex
+
+Regex => RegexConcat | RegexConcat '|' Regex
+
+RegexConcat => RegexRepeat | RegexRepeat RegexConcat
+
+RegexRepeat => RegexToken RegexRepeater
+
+RegexToken => '.' | '#' | '$' | Category | '(' Regex ')' | Token
+
+RegexRepeater => ∅ | RegexRepeaterBase RegexRepeaterGreedy
+
+RegexRepeaterBase => '?' | '*' | '+'
+
+RegexRepeaterGreedy => ∅ | '?'
+
+Replace => String
+
+Environment => ∅ | '/' EnvironmentExpr
+
+EnvironmentExpr => EnvironmentFactor | EnvironmentExpr '|' EnvironmentFactor
+
+EnvironmentFactor => EnvironmentTerm | EnvironmentFactor '&' EnvironmentTerm
+
+EnvironmentTerm => EnvironmentComponent '_' EnvironmentComponent | '!' EnvironmentTerm | '(' EnvironmentExpr ')'
+
+EnvironmentComponent => ∅ | Regex
