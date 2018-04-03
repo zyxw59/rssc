@@ -20,7 +20,7 @@ pub struct Environment {
 }
 
 /// Almost a regular expression
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Pattern {
     /// Matches an empty string, i.e. zero segments.
     Empty,
