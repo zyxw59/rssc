@@ -4,12 +4,13 @@ extern crate regex;
 extern crate unicode_categories;
 extern crate unicode_normalization;
 
-pub mod re;
-pub mod rssc;
 pub mod ast;
 pub mod category;
-pub mod token;
+pub mod parser;
+pub mod re;
+pub mod rssc;
 pub mod segment;
+pub mod token;
 
 use std::io::{self, BufRead};
 
