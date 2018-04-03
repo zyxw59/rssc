@@ -1,3 +1,18 @@
+//! A simple recursive descent parser for environment expressssions.
+//!
+//! Environment expressions are logical expressions that dictate the environments in which a sound
+//! change applies (or doesn't apply). The grammar of environment expressions is as follows:
+//!
+//! ```text
+//! Expr : Term ( '|' Term ) *
+//! Term : Factor ( '&' Factor ) *
+//! Factor : '(' Expr ')' | '!' Factor | Environment
+//! Environment : Pattern '_' Pattern
+//! ```
+//!
+//! This module does not handle the parsing of `Environment`s or `Pattern`s themselves, for that,
+//! see the `pattern` module.
+
 use std::error;
 use std::fmt;
 use std::iter::Peekable;
@@ -103,25 +118,49 @@ mod tests {
     }
 }
 
+/// A token to be read by the parser.
+///
+/// This type is made generic over the type of the `Other` variant for ease of testing and to
+/// separate out details of implementation between different parts of the program.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Token<T> {
+    /// The character '|'.
     Or,
+    /// The character '&'.
     And,
+    /// The character '!'.
     Not,
+    /// The character '('.
     Begin,
+    /// The character ')'.
     End,
+    /// Any other token. In the case of parsing an environment expression, `T` should be a type
+    /// that represents a single environment.
     Other(T),
 }
 
+/// An expression tree produced by the parser.
+///
+/// This type is made generic over the type of the `Other` variant for ease of testing and to
+/// separate out details of implementation between different parts of the program.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expr<T> {
+    /// True iff _any_ of the expressions are true.
     Or(Vec<Expr<T>>),
+    /// True iff _all_ of the expressions are true.
     And(Vec<Expr<T>>),
+    /// True iff the expression is false.
     Not(Box<Expr<T>>),
+    /// True iff the environment matches.
     Other(T),
 }
 
 impl<T> Expr<T> where {
+    /// Parse the given stream as an expression.
+    ///
+    /// If `stream` does not represent a valid expression, an `Err` will be returned describing
+    /// the first unexpected token encountered. Otherwise, an `Ok` value will hold the expression
+    /// tree produced.
     pub fn parse<I>(stream: I) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
         let mut stream = stream.peekable();
         Expr::expr(&mut stream).and_then(|e| {
@@ -189,14 +228,22 @@ impl<T> Expr<T> where {
 
 type ParseResult<T> = Result<Expr<T>, Error>;
 
+/// An error encountered in the parsing of an expression.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Error {
+    /// An unexpected '|' token.
     Or,
+    /// An unexpected '&' token.
     And,
+    /// An unexpected '!' token.
     Not,
-    Other,
-    CloseParen,
+    /// An unexpected '(' token.
     OpenParen,
+    /// An unexpected ')' token.
+    CloseParen,
+    /// An unexpected literal token.
+    Other,
+    /// Unexpected end of input stream.
     EndOfInput,
 }
 
