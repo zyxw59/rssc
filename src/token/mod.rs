@@ -12,18 +12,17 @@ use self::segment::{Segment, SegmentMap};
 
 //use segment::Segment;
 
-/** A token for the parser.
-
-Characters with special meaning in the rule file format, i.e.
-- Regex control characters (`.*+?()[]|`)
-- Characters with special meaning in patterns (`#$0{}`)
-- Characters which delimit the parser (`>_/!|&\n`)
-are mapped to the range `0x00 ... 0x1F`.
-Printable ASCII characters (and backslash-escaped control characters) are mapped to their ASCII
-values.
-All other tokens, including unicode characters, sequences involving combining diacritics, and
-user-defined tokens, are mapped to the range `0x80 ... u16::MAX`
-*/
+/// A token for the parser.
+/// 
+/// - Characters with special meaning in the rule file format, i.e.
+///   - Regex control characters (`.*+?()[]|`)
+///   - Characters with special meaning in patterns (`#$0{}`)
+///   - Characters which delimit the parser (`>_/!|&\n`)
+///   are mapped to the range `0x00 ... 0x1F`.
+/// - Printable ASCII characters (and backslash-escaped control characters) are mapped to their
+///   ASCII values.
+/// - All other tokens, including unicode characters, sequences involving combining diacritics, and
+///   user-defined tokens, are mapped to the range `0x80 ... u16::MAX`
 #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Token(u16);
 
