@@ -15,6 +15,115 @@ use std::iter::Peekable;
 
 use ast::Repeater;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unexpected_close_paren() {
+        use self::Token::*;
+        let input = vec![Other(0), End];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Err(Error::CloseParen));
+    }
+
+    #[test]
+    fn simple_expr() {
+        use self::Token::*;
+        let input = vec![Other(0), Or, Other(1)];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Ok(Expr::Alternate(vec![Expr::Other(0), Expr::Other(1)])));
+    }
+
+    #[test]
+    fn repeater() {
+        use self::Token::*;
+        let input = vec![Other(0), Question];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Ok(Expr::Repeat(Box::new(Expr::Other(0)), Repeater::ZeroOrOne(true))));
+    }
+
+    #[test]
+    fn repeater_lazy() {
+        use self::Token::*;
+        let input = vec![Other(0), Question, Question];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Ok(Expr::Repeat(Box::new(Expr::Other(0)), Repeater::ZeroOrOne(false))));
+    }
+
+    #[test]
+    fn unexpected_question() {
+        use self::Token::*;
+        let input = vec![Other(0), Question, Question, Question];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Err(Error::Question));
+    }
+
+    #[test]
+    fn unexpected_star() {
+        use self::Token::*;
+        let input = vec![Other(0), Question, Star];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Err(Error::Star));
+    }
+
+    #[test]
+    fn unexpected_open() {
+        use self::Token::*;
+        let input = vec![Other(0), Begin];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn unexpected_open_2() {
+        use self::Token::*;
+        let input = vec![Other(0), Or, Other(1), Begin];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn unexpected_open_3() {
+        use self::Token::*;
+        let input = vec![Other(0), Or, Begin];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn nested() {
+        use self::Token::*;
+        let input = vec![Begin, Other(0), End];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Ok(Expr::Other(0)));
+    }
+
+    #[test]
+    fn missing_close() {
+        use self::Token::*;
+        let input = vec![Begin, Other(0)];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn doubly_nested() {
+        use self::Token::*;
+        let input = vec![Begin, Begin, Other(0), End, End];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Ok(Expr::Other(0)));
+    }
+
+    #[test]
+    fn doubly_nested_mismatch() {
+        use self::Token::*;
+        let input = vec![Begin, Begin, Other(0), End];
+        let tree = Expr::parse(input.into_iter());
+        assert_eq!(tree, Err(Error::EndOfInput));
+    }
+}
+
 /// A token to be read by the parser.
 ///
 /// This type is made generic over the type of the `Other` variant for ease of testing and to
@@ -64,12 +173,7 @@ impl<T> Expr<T> where {
         Expr::expr(&mut stream).and_then(|e| {
             match stream.next() {
                 Some(Token::End) => Err(Error::CloseParen),
-                Some(Token::Question) => Err(Error::Question),
-                Some(Token::Star) => Err(Error::Star),
-                Some(Token::Plus) => Err(Error::Plus),
-                Some(Token::Begin) => Err(Error::OpenParen),
-                Some(Token::Other(_)) => Err(Error::Other),
-                Some(Token::Or) => unreachable!("in parse/Or"),
+                Some(_) => unreachable!("in parse/Some(_)"),
                 None => Ok(e),
             }
         })
@@ -91,7 +195,10 @@ impl<T> Expr<T> where {
 
     fn term<I>(stream: &mut Peekable<I>) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
         let mut factors = Vec::new();
-        while match stream.peek() { Some(&Token::Or) | None => false, Some(_) => true } {
+        while match stream.peek() {
+            Some(&Token::Or) | Some(&Token::End) | None => false,
+            Some(_) => true,
+        } {
             factors.push({
                 let elem = Expr::elem(stream)?;
                 match Expr::repeater(stream) {
@@ -100,7 +207,11 @@ impl<T> Expr<T> where {
                 }
             });
         }
-        Ok(Expr::Concatenate(factors))
+        if factors.len() == 1 {
+            factors.into_iter().next().ok_or_else(|| unreachable!())
+        } else {
+            Ok(Expr::Concatenate(factors))
+        }
     }
 
     fn elem<I>(stream: &mut Peekable<I>) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
@@ -109,12 +220,7 @@ impl<T> Expr<T> where {
                 let value = Expr::expr(stream);
                 match stream.next() {
                     Some(Token::End) => value,
-                    Some(Token::Question) => Err(Error::Question),
-                    Some(Token::Star) => Err(Error::Star),
-                    Some(Token::Plus) => Err(Error::Plus),
-                    Some(Token::Begin) => Err(Error::OpenParen),
-                    Some(Token::Other(_)) => Err(Error::Other),
-                    Some(Token::Or) => unreachable!("in elem/Begin"),
+                    Some(_) => unreachable!("in elem/Begin"),
                     None => Err(Error::EndOfInput),
                 }
             },
@@ -122,7 +228,7 @@ impl<T> Expr<T> where {
             Some(Token::Question) => Err(Error::Question),
             Some(Token::Star) => Err(Error::Star),
             Some(Token::Plus) => Err(Error::Plus),
-            Some(Token::End) => Err(Error::CloseParen),
+            Some(Token::End) => unreachable!("in elem/End"),
             Some(Token::Other(tok)) => Ok(Expr::Other(tok)),
             None => unreachable!("in elem/None"),
         }
@@ -147,9 +253,9 @@ impl<T> Expr<T> where {
         stream.next();
         if let Some(&Token::Question) = stream.peek() {
             stream.next();
-            true
-        } else {
             false
+        } else {
+            true
         }
     }
 }
