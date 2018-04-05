@@ -4,7 +4,7 @@ use std::fmt;
 pub mod environment;
 pub mod regex;
 
-/// An error encountered in the parsing of an expression.
+/// An error encountered during parsing.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Error {
     /// An unexpected '|' token.
