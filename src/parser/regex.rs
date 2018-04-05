@@ -9,10 +9,9 @@
 //! Repeater : ( '?' | '*' | '+' ) '?' ?
 //! ```
 
-use std::error;
-use std::fmt;
 use std::iter::Peekable;
 
+use super::Error;
 use ast::Repeater;
 
 #[cfg(test)]
@@ -261,47 +260,3 @@ impl<T> Expr<T> where {
 }
 
 type ParseResult<T> = Result<Expr<T>, Error>;
-
-/// An error encountered in the parsing of an expression.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Error {
-    /// An unexpected '|' token.
-    Or,
-    /// An unexpected '?' token.
-    Question,
-    /// An unexpected '*' token.
-    Star,
-    /// An unexpected '+' token.
-    Plus,
-    /// An unexpected '(' token.
-    OpenParen,
-    /// An unexpected ')' token.
-    CloseParen,
-    /// An unexpected literal token.
-    Other,
-    /// Unexpected end of input stream.
-    EndOfInput,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", error::Error::description(self))
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        use self::Error::*;
-        match *self {
-            Or => "Unexpected '|'",
-            Question => "Unexpected '?'",
-            Star => "Unexpected '*'",
-            Plus => "Unexpected '+'",
-            Other => "Unexpected token",
-            CloseParen => "Unexpected ')'",
-            OpenParen => "Unexpected '('",
-            EndOfInput => "Unexpected end of input",
-        }
-    }
-}
-
