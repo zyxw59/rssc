@@ -10,21 +10,65 @@ mod tokenizer;
 
 use self::segment::{Segment, SegmentMap};
 
-//use segment::Segment;
+macro_rules! enum_const {
+    ( $(#[$attr:meta])* $main:ident ($int:ty); $($value:pat => $id:ident),* $(,)* ) => {
+        enum _Constants {
+            $( $id, )*
+        }
 
-/// A token for the parser.
-///
-/// - Characters with special meaning in the rule file format, i.e.
-///   - Regex control characters (`.*+?()[]|`)
-///   - Characters with special meaning in patterns (`#$0{}`)
-///   - Characters which delimit the parser (`>_/!|&\n`)
-///   are mapped to the range `0x00 ... 0x1F`.
-/// - Printable ASCII characters (and backslash-escaped control characters) are mapped to their
-///   ASCII values.
-/// - All other tokens, including unicode characters, sequences involving combining diacritics, and
-///   user-defined tokens, are mapped to the range `0x80 ... u16::MAX`
-#[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Token(u16);
+        $(#[$attr])*
+        pub struct $main($int);
+
+        #[allow(non_upper_case_globals)]
+        impl $main {
+            $( pub const $id: $main = $main(_Constants::$id as $int); )*
+
+            #[doc="Attempts to generate a value corresponding to the given `u8` if it is one of
+            the enumerated `u8`s, or `None` otherwise."]
+            pub fn try_from_u8(c: u8) -> Option<$main> {
+                match c {
+                    $( $value => Some($main::$id), )*
+                    _ => None,
+                }
+            }
+        }
+    }
+}
+enum_const! {
+    /// A token for the parser.
+    ///
+    /// - Characters with special meaning in the rule file format, i.e.
+    ///   - Regex control characters (`.*+?()[]|`)
+    ///   - Characters with special meaning in patterns (`#$0{}`)
+    ///   - Characters which delimit the parser (`>_/!|&\n`)
+    ///   are mapped to the range `0x00 ... 0x1F`.
+    /// - Printable ASCII characters (and backslash-escaped control characters) are mapped to their
+    ///   ASCII values.
+    /// - All other tokens, including unicode characters, sequences involving combining diacritics, and
+    ///   user-defined tokens, are mapped to the range `0x80 ... u16::MAX`
+    #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
+    Token(u16);
+    b'.' => Dot,
+    b'*' => Star,
+    b'+' => Plus,
+    b'?' => Question,
+    b'(' => OpenParen,
+    b')' => CloseParen,
+    b'[' => OpenBracket,
+    b']' => CloseBracket,
+    b'|' => Pipe,
+    b'#' => Hash,
+    b'$' => Dollar,
+    b'0' => Zero,
+    b'{' => OpenBrace,
+    b'}' => CloseBrace,
+    b'>' => Arrow,
+    b'_' => Underscore,
+    b'/' => Slash,
+    b'!' => Exclam,
+    b'&' => And,
+    b'\n' => Newline,
+}
 
 impl Token {
     /// Creates a `Token` with the given offset from `0x80`.
@@ -43,8 +87,8 @@ impl Token {
     /// corresponding value in the range `0x00 ... 0x1F`. Otherwise, returns the numeric value of
     /// the byte.
     pub fn from_u8(c: u8) -> Token {
-        match ControlChar::try_from_char(c as char) {
-            Some(c) => Token(c as u16),
+        match Token::try_from_char(c) {
+            Some(t) => t,
             None => Token(c as u16),
         }
     }
