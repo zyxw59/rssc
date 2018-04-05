@@ -23,12 +23,20 @@ macro_rules! enum_const {
         impl $main {
             $( pub const $id: $main = $main(_Constants::$id as $int); )*
 
-            #[doc="Attempts to generate a value corresponding to the given `u8` if it is one of
-            the enumerated `u8`s, or `None` otherwise."]
+            /// Attempts to generate a value corresponding to the given `u8` if it is one of the
+            /// enumerated `u8`s, or `None` otherwise.
             pub fn try_from_u8(c: u8) -> Option<$main> {
                 match c {
                     $( $value => Some($main::$id), )*
                     _ => None,
+                }
+            }
+
+            /// Returns whether the given `u8` is one of the enumerated values.
+            pub fn is_enumerated(c: u8) -> bool {
+                match c {
+                    $( $value => true, )*
+                    _ => false,
                 }
             }
         }
@@ -87,7 +95,7 @@ impl Token {
     /// corresponding value in the range `0x00 ... 0x1F`. Otherwise, returns the numeric value of
     /// the byte.
     pub fn from_u8(c: u8) -> Token {
-        match Token::try_from_char(c) {
+        match Token::try_from_u8(c) {
             Some(t) => t,
             None => Token(c as u16),
         }
@@ -96,6 +104,11 @@ impl Token {
     /// Creates a `Token` from the given byte, always returning the numeric value of the byte.
     pub fn from_u8_escaped(c: u8) -> Token {
         Token(c as u16)
+    }
+
+    /// Returns whether the given `char` is a control character.
+    pub fn is_control_char(c: char) -> bool {
+        c <= '\x7F' && Token::is_enumerated(c as u8)
     }
 }
 
@@ -110,62 +123,6 @@ impl Add<u16> for Token {
 impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Token({:#X})", self.0)
-    }
-}
-
-pub enum ControlChar {
-    Dot,
-    Star,
-    Plus,
-    Question,
-    OpenParen,
-    CloseParen,
-    OpenBracket,
-    CloseBracket,
-    Pipe,
-    Hash,
-    Dollar,
-    Zero,
-    OpenBrace,
-    CloseBrace,
-    Arrow,
-    Underscore,
-    Slash,
-    Exclam,
-    And,
-    Newline,
-}
-
-impl ControlChar {
-    pub fn try_from_char(c: char) -> Option<ControlChar> {
-        use self::ControlChar::*;
-        match c {
-            '.' => Some(Dot),
-            '*' => Some(Star),
-            '+' => Some(Plus),
-            '?' => Some(Question),
-            '(' => Some(OpenParen),
-            ')' => Some(CloseParen),
-            '[' => Some(OpenBracket),
-            ']' => Some(CloseBracket),
-            '|' => Some(Pipe),
-            '#' => Some(Hash),
-            '$' => Some(Dollar),
-            '0' => Some(Zero),
-            '{' => Some(OpenBrace),
-            '}' => Some(CloseBrace),
-            '>' => Some(Arrow),
-            '_' => Some(Underscore),
-            '/' => Some(Slash),
-            '!' => Some(Exclam),
-            '&' => Some(And),
-            '\n' => Some(Newline),
-            _ => None,
-        }
-    }
-
-    pub fn is_control_char(c: char) -> bool {
-        c <= '\x7f' && ControlChar::try_from_char(c).is_some()
     }
 }
 

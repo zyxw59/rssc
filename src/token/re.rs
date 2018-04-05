@@ -308,7 +308,7 @@ impl Program {
                     }
                     ControlChar => {
                         // check if the character is a control character
-                        if super::ControlChar::is_control_char(ch_i) {
+                        if super::Token::is_control_char(ch_i) {
                             next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
                         }
                     }
