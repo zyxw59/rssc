@@ -8,7 +8,6 @@ pub mod ast;
 pub mod category;
 pub mod parser;
 pub mod re;
-pub mod rssc;
 pub mod segment;
 pub mod token;
 
@@ -38,11 +37,6 @@ fn main() {
                 let line = line + "\n";
                 let tokens = token::Tokens::new(line.as_ref(), segments.clone());
                 println!("{:?}", tokens.collect::<Vec<_>>());
-                /*
-                let s: &str = &*line.trim();
-                println!("{:?}", rssc::parse_Pattern(s).unwrap());
-                println!("{}", rssc::parse_Pattern(s).unwrap());
-                */
             },
             Err(err) => {println!("Error: {}", err); break;},
         }

@@ -2,13 +2,8 @@
 name = "rssc"
 version = "0.1.0"
 authors = ["Emily Crandall Fleischman <emilycf@mit.edu>"]
-build = "build.rs"
-
-[build-dependencies]
-lalrpop = "0.13.1"
 
 [dependencies]
-lalrpop-util = "0.13.1"
 lazy_static = "0.2.9"
 radix_trie = "0.1"
 regex = "0.2"
