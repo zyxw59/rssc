@@ -13,9 +13,9 @@
 //! This module does not handle the parsing of `Environment`s or `Pattern`s themselves, for that,
 //! see the `pattern` module.
 
-use std::error;
-use std::fmt;
 use std::iter::Peekable;
+
+use super::Error;
 
 #[cfg(test)]
 mod tests {
@@ -227,44 +227,3 @@ impl<T> Expr<T> where {
 }
 
 type ParseResult<T> = Result<Expr<T>, Error>;
-
-/// An error encountered in the parsing of an expression.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Error {
-    /// An unexpected '|' token.
-    Or,
-    /// An unexpected '&' token.
-    And,
-    /// An unexpected '!' token.
-    Not,
-    /// An unexpected '(' token.
-    OpenParen,
-    /// An unexpected ')' token.
-    CloseParen,
-    /// An unexpected literal token.
-    Other,
-    /// Unexpected end of input stream.
-    EndOfInput,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", error::Error::description(self))
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        use self::Error::*;
-        match *self {
-            Or => "Unexpected '|'",
-            And => "Unexpected '&'",
-            Not => "Unexpected '!'",
-            Other => "Unexpected token",
-            CloseParen => "Unexpected ')'",
-            OpenParen => "Unexpected '('",
-            EndOfInput => "Unexpected end of input",
-        }
-    }
-}
-
