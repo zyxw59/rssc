@@ -146,7 +146,7 @@ impl Thread {
     /// Create a new `Thread` with the specified instruction pointer and the given list of saved
     /// locations.
     fn new(pc: InstrPtr, saved: SaveList) -> Thread {
-        Thread {pc, saved}
+        Thread { pc, saved }
     }
 }
 
@@ -182,7 +182,6 @@ impl fmt::Debug for OptionUsize {
     }
 }
 
-
 /// A list of threads
 #[derive(Debug)]
 struct ThreadList {
@@ -200,12 +199,14 @@ impl ThreadList {
     /// Add a new `Thread` with the specified instruction pointer, and the given list of saved
     /// locations. If `pc` points to a `Jump`, `Split`, or `Save` instruction, calls `add_thread`
     /// recursively, so that the active `ThreadList` never contains pointers to those instructions.
-    fn add_thread(&mut self,
-                  pc: InstrPtr,
-                  in_idx: usize,
-                  prog: &Program,
-                  mut saved: SaveList,
-                  last: &mut Vec<OptionUsize>) {
+    fn add_thread(
+        &mut self,
+        pc: InstrPtr,
+        in_idx: usize,
+        prog: &Program,
+        mut saved: SaveList,
+        last: &mut Vec<OptionUsize>,
+    ) {
         // check if this `pc` has already been used at this `in_idx`
         if let Some(i) = last[pc].as_option() {
             if i == in_idx {
@@ -222,22 +223,22 @@ impl ThreadList {
                 // clone the `saved` vector so we can use it again in the second branch
                 self.add_thread(pc + 1, in_idx, prog, saved.clone(), last);
                 self.add_thread(split, in_idx, prog, saved, last);
-            },
+            }
             Jump(jump) => {
                 // call `add_thread` recursively
                 // jump to specified pc
                 self.add_thread(jump, in_idx, prog, saved, last);
-            },
+            }
             Save => {
                 // save index
                 saved.push(in_idx);
                 // and recursively add next instruction
                 self.add_thread(pc + 1, in_idx, prog, saved, last);
-            },
+            }
             Char(_) | Any | ControlChar | BaseChar | CombiningChar | CombiningDouble | Match => {
                 // push a new thread with the given pc
                 self.threads.push(Thread::new(pc, saved));
-            },
+            }
         }
     }
 }
@@ -266,9 +267,10 @@ impl Program {
     }
 
     /// Executes the program. Returns the positions of all the save locations if a match is found.
-    pub fn exec<C, I>(&self, input: I) -> Option<SaveList> where
+    pub fn exec<C, I>(&self, input: I) -> Option<SaveList>
+    where
         C: Borrow<char>,
-        I: IntoIterator<Item=C>,
+        I: IntoIterator<Item = C>,
     {
         // initialize thread lists. The number of threads should be limited by the length of the
         // program (since each instruction either ends a thread (in the case of a `Match` or a
@@ -299,44 +301,44 @@ impl Program {
                             // positions
                             next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
                         }
-                    },
+                    }
                     Any => {
                         // always matches
                         next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
-                    },
+                    }
                     ControlChar => {
                         // check if the character is a control character
                         if super::ControlChar::is_control_char(ch_i) {
                             next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
                         }
-                    },
+                    }
                     BaseChar => {
                         // check if the character is a base character
                         if !is_modifier(ch_i) {
                             next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
                         }
-                    },
+                    }
                     CombiningChar => {
                         // check if the character is a combining character
                         if is_modifier(ch_i) {
                             next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
                         }
-                    },
+                    }
                     CombiningDouble => {
                         // check if the character is a combining double character
                         if is_combining_double(ch_i) {
                             next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
                         }
-                    },
+                    }
                     Match => {
                         // add the saved locations to the final list
                         saves.push(th.saved);
-                    },
+                    }
                     // These instructions are handled in add_thread, so the current thread should
                     // never point to one of them
                     Split(_) | Jump(_) | Save => {
                         unreachable!();
-                    },
+                    }
                 }
             }
             // `next` becomes list of active threads, and `curr` (empty after iteration) can hold
@@ -350,7 +352,7 @@ impl Program {
             match self[th.pc] {
                 Match => {
                     saves.push(th.saved);
-                },
+                }
                 // anything else is a failed match
                 _ => {}
             }

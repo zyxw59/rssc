@@ -40,29 +40,25 @@ impl<T: Token> Regex<T> {
         v.push(Match);
 
         // construct final program
-        program::Program::new(v, 2 + num_captures*2)
+        program::Program::new(v, 2 + num_captures * 2)
     }
 
-    fn compile_partial(self,
-                       v: &mut Vec<program::Instr<T>>,
-                       num_captures: &mut usize) {
+    fn compile_partial(self, v: &mut Vec<program::Instr<T>>, num_captures: &mut usize) {
         use self::program::Instr::*;
         match self {
-            Regex::Empty => {},
-            Regex::Literal(toks) => {
-                for t in toks {
-                    v.push(Token(t));
-                }
+            Regex::Empty => {}
+            Regex::Literal(toks) => for t in toks {
+                v.push(Token(t));
             },
             Regex::Any => {
                 v.push(Any);
-            },
+            }
             Regex::WordBoundary => {
                 v.push(WordBoundary);
-            },
+            }
             Regex::Set(set) => {
                 v.push(Set(set));
-            },
+            }
             Regex::Repeat(e, rep) => {
                 use self::Repeater::*;
                 match rep {
@@ -80,7 +76,7 @@ impl<T: Token> Regex<T> {
                             // prefer to skip to end
                             v[i] = JSplit(v.len());
                         }
-                    },
+                    }
                     ZeroOrMore(greedy) => {
                         // save current pc
                         let start = v.len();
@@ -97,7 +93,7 @@ impl<T: Token> Regex<T> {
                             // prefer to skip to end
                             v[start] = JSplit(v.len());
                         }
-                    },
+                    }
                     OneOrMore(greedy) => {
                         // save current pc
                         let start = v.len();
@@ -111,25 +107,23 @@ impl<T: Token> Regex<T> {
                             // prefer not to repeat, i.e. prefer to continue
                             v.push(Split(start));
                         }
-                    },
+                    }
                 }
-            },
+            }
             Regex::Capture(e) => {
                 // increment
                 *num_captures += 1;
                 // save current value of `num_captures`, incase `e` has any captures
                 let n = *num_captures;
                 // save begining of capture
-                v.push(Save(n*2));
+                v.push(Save(n * 2));
                 // match `e`
                 e.compile_partial(v, num_captures);
                 // save end of capture
-                v.push(Save(n*2 + 1));
-            },
-            Regex::Concat(es) => {
-                for e in es {
-                    e.compile_partial(v, num_captures);
-                }
+                v.push(Save(n * 2 + 1));
+            }
+            Regex::Concat(es) => for e in es {
+                e.compile_partial(v, num_captures);
             },
             Regex::Alternate(mut es) => {
                 // this can definitely be optimized by using maps
@@ -179,7 +173,6 @@ impl<T: Token> Regex<T> {
     }
 }
 
-
 /// The type of a repetition. In each enum variant, the one argument determines whether or not the
 /// repetition should be greedy, i.e. preferring to match longer strings over shorter strings.
 #[derive(Debug)]
@@ -191,4 +184,3 @@ pub enum Repeater {
     /// Matches one or more instances, i.e. `+` or `+?`
     OneOrMore(bool),
 }
-

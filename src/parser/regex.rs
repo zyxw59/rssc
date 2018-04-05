@@ -31,7 +31,10 @@ mod tests {
         use self::Token::*;
         let input = vec![Other(0), Or, Other(1)];
         let tree = Expr::parse(input.into_iter());
-        assert_eq!(tree, Ok(Expr::Alternate(vec![Expr::Other(0), Expr::Other(1)])));
+        assert_eq!(
+            tree,
+            Ok(Expr::Alternate(vec![Expr::Other(0), Expr::Other(1)]))
+        );
     }
 
     #[test]
@@ -39,7 +42,13 @@ mod tests {
         use self::Token::*;
         let input = vec![Other(0), Question];
         let tree = Expr::parse(input.into_iter());
-        assert_eq!(tree, Ok(Expr::Repeat(Box::new(Expr::Other(0)), Repeater::ZeroOrOne(true))));
+        assert_eq!(
+            tree,
+            Ok(Expr::Repeat(
+                Box::new(Expr::Other(0)),
+                Repeater::ZeroOrOne(true)
+            ))
+        );
     }
 
     #[test]
@@ -47,7 +56,13 @@ mod tests {
         use self::Token::*;
         let input = vec![Other(0), Question, Question];
         let tree = Expr::parse(input.into_iter());
-        assert_eq!(tree, Ok(Expr::Repeat(Box::new(Expr::Other(0)), Repeater::ZeroOrOne(false))));
+        assert_eq!(
+            tree,
+            Ok(Expr::Repeat(
+                Box::new(Expr::Other(0)),
+                Repeater::ZeroOrOne(false)
+            ))
+        );
     }
 
     #[test]
@@ -158,7 +173,7 @@ pub enum Expr<T> {
     /// Matches a repetition of a pattern.
     Repeat(Box<Expr<T>>, Repeater),
     /// Any single token.
-    Other(T)
+    Other(T),
 }
 
 impl<T> Expr<T> where {
@@ -167,18 +182,22 @@ impl<T> Expr<T> where {
     /// If `stream` does not represent a valid expression, an `Err` will be returned describing
     /// the first unexpected token encountered. Otherwise, an `Ok` value will hold the expression
     /// tree produced.
-    pub fn parse<I>(stream: I) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
+    pub fn parse<I>(stream: I) -> ParseResult<T>
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         let mut stream = stream.peekable();
-        Expr::expr(&mut stream).and_then(|e| {
-            match stream.next() {
-                Some(Token::End) => Err(Error::CloseParen),
-                Some(_) => unreachable!("in parse/Some(_)"),
-                None => Ok(e),
-            }
+        Expr::expr(&mut stream).and_then(|e| match stream.next() {
+            Some(Token::End) => Err(Error::CloseParen),
+            Some(_) => unreachable!("in parse/Some(_)"),
+            None => Ok(e),
         })
     }
 
-    fn expr<I>(stream: &mut Peekable<I>) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
+    fn expr<I>(stream: &mut Peekable<I>) -> ParseResult<T>
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         let mut terms = Vec::new();
         terms.push(Expr::term(stream)?);
         while let Some(&Token::Or) = stream.peek() {
@@ -192,7 +211,10 @@ impl<T> Expr<T> where {
         }
     }
 
-    fn term<I>(stream: &mut Peekable<I>) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
+    fn term<I>(stream: &mut Peekable<I>) -> ParseResult<T>
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         let mut factors = Vec::new();
         while match stream.peek() {
             Some(&Token::Or) | Some(&Token::End) | None => false,
@@ -213,7 +235,10 @@ impl<T> Expr<T> where {
         }
     }
 
-    fn elem<I>(stream: &mut Peekable<I>) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
+    fn elem<I>(stream: &mut Peekable<I>) -> ParseResult<T>
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         match stream.next() {
             Some(Token::Begin) => {
                 let value = Expr::expr(stream);
@@ -222,7 +247,7 @@ impl<T> Expr<T> where {
                     Some(_) => unreachable!("in elem/Begin"),
                     None => Err(Error::EndOfInput),
                 }
-            },
+            }
             Some(Token::Or) => unreachable!("in elem/Or"),
             Some(Token::Question) => Err(Error::Question),
             Some(Token::Star) => Err(Error::Star),
@@ -233,22 +258,22 @@ impl<T> Expr<T> where {
         }
     }
 
-    fn repeater<I>(stream: &mut Peekable<I>) -> Option<Repeater> where I: Iterator<Item=Token<T>> {
+    fn repeater<I>(stream: &mut Peekable<I>) -> Option<Repeater>
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         match stream.peek() {
-            Some(&Token::Question) => {
-                Some(Repeater::ZeroOrOne(Expr::repeater_greed(stream)))
-            },
-            Some(&Token::Star) => {
-                Some(Repeater::ZeroOrMore(Expr::repeater_greed(stream)))
-            },
-            Some(&Token::Plus) => {
-                Some(Repeater::OneOrMore(Expr::repeater_greed(stream)))
-            },
-            _ => None
+            Some(&Token::Question) => Some(Repeater::ZeroOrOne(Expr::repeater_greed(stream))),
+            Some(&Token::Star) => Some(Repeater::ZeroOrMore(Expr::repeater_greed(stream))),
+            Some(&Token::Plus) => Some(Repeater::OneOrMore(Expr::repeater_greed(stream))),
+            _ => None,
         }
     }
 
-    fn repeater_greed<I>(stream: &mut Peekable<I>) -> bool where I: Iterator<Item=Token<T>> {
+    fn repeater_greed<I>(stream: &mut Peekable<I>) -> bool
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         stream.next();
         if let Some(&Token::Question) = stream.peek() {
             stream.next();

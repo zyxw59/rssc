@@ -1,5 +1,5 @@
 use std::fmt;
-use std::io::{self,BufRead};
+use std::io::{self, BufRead};
 use std::ops::Add;
 
 use unicode_normalization::UnicodeNormalization;
@@ -13,7 +13,7 @@ use self::segment::{Segment, SegmentMap};
 //use segment::Segment;
 
 /// A token for the parser.
-/// 
+///
 /// - Characters with special meaning in the rule file format, i.e.
 ///   - Regex control characters (`.*+?()[]|`)
 ///   - Characters with special meaning in patterns (`#$0{}`)
@@ -176,7 +176,7 @@ impl<R: BufRead> Tokens<R> {
             // extract segment boundaries
             let saves = self.re.exec(chars.iter());
             // TODO: return an error here, don't just panic
-             let saves = saves.expect("no valid tokenization of line");
+            let saves = saves.expect("no valid tokenization of line");
             for (start, end) in saves.iter().zip(saves[1..].iter()) {
                 // extract the sgement
                 let seg = Segment::from(&chars[*start..*end]);
@@ -199,9 +199,14 @@ impl<R: BufRead> Iterator for Tokens<R> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
-        if self.fill_buffer().is_err() { return None; }
+        if self.fill_buffer().is_err() {
+            return None;
+        }
         match self.out_buffer.get(self.index) {
-            Some(t) => {self.index += 1; Some(*t)},
+            Some(t) => {
+                self.index += 1;
+                Some(*t)
+            }
             None => None,
         }
     }

@@ -36,7 +36,7 @@ pub enum Pattern {
         /// The name of the category.
         name: String,
         /// The slot to save the matched index to.
-        num: Option<usize>
+        num: Option<usize>,
     },
     /// Matches a repeating pattern
     Repeat(Box<Pattern>, Repeater),
@@ -66,13 +66,28 @@ impl fmt::Display for Pattern {
             Literal(ref s) => write!(f, "{}", s),
             Any => write!(f, "."),
             WordBoundary => write!(f, "#"),
-            Category{ref name, num: Some(num)} => write!(f, "{{{}:{}}}", num, name),
-            Category{ref name, num: None} => write!(f, "{{{}}}", name),
+            Category {
+                ref name,
+                num: Some(num),
+            } => write!(f, "{{{}:{}}}", num, name),
+            Category {
+                ref name,
+                num: None,
+            } => write!(f, "{{{}}}", name),
             Repeat(ref pat, ref rep) => write!(f, "{}{}", pat, rep),
-            Concat(ref v) =>
-                write!(f, "{}", v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("")),
-            Alternate(ref v) =>
-                write!(f, "{}", v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("|")),
+            Concat(ref v) => write!(
+                f,
+                "{}",
+                v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("")
+            ),
+            Alternate(ref v) => write!(
+                f,
+                "{}",
+                v.iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join("|")
+            ),
         }
     }
 }
@@ -88,9 +103,9 @@ impl fmt::Display for Repeater {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Repeater::*;
         match *self {
-            ZeroOrOne(greedy) => write!(f, "?{}", if greedy {""} else {"?"}),
-            ZeroOrMore(greedy) => write!(f, "*{}", if greedy {""} else {"?"}),
-            OneOrMore(greedy) => write!(f, "+{}", if greedy {""} else {"?"}),
+            ZeroOrOne(greedy) => write!(f, "?{}", if greedy { "" } else { "?" }),
+            ZeroOrMore(greedy) => write!(f, "*{}", if greedy { "" } else { "?" }),
+            OneOrMore(greedy) => write!(f, "+{}", if greedy { "" } else { "?" }),
         }
     }
 }

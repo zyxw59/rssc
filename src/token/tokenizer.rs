@@ -10,12 +10,8 @@ mod tests {
     fn multiple_possible_segmentations() {
         let line = String::from("antś\n");
         let line = line.chars().nfd();
-        let segments = SegmentMap::clone_from_vec(
-            &vec![
-                vec!['a', 'n'],
-                vec!['n', 't'],
-                vec!['t', 's'],
-            ]);
+        let segments =
+            SegmentMap::clone_from_vec(&vec![vec!['a', 'n'], vec!['n', 't'], vec!['t', 's']]);
         let prog = matcher(&segments);
         println!("{}", prog);
 

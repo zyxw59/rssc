@@ -53,7 +53,9 @@ impl SegmentMap {
             let entry = self.vec[key.len() - 1].entry(key);
             let max_token = self.max_token + 1;
             let token = *entry.or_insert(max_token);
-            if token > self.max_token { self.max_token = token; }
+            if token > self.max_token {
+                self.max_token = token;
+            }
             token
         }
     }

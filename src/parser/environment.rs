@@ -161,21 +161,25 @@ impl<T> Expr<T> where {
     /// If `stream` does not represent a valid expression, an `Err` will be returned describing
     /// the first unexpected token encountered. Otherwise, an `Ok` value will hold the expression
     /// tree produced.
-    pub fn parse<I>(stream: I) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
+    pub fn parse<I>(stream: I) -> ParseResult<T>
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         let mut stream = stream.peekable();
-        Expr::expr(&mut stream).and_then(|e| {
-            match stream.next() {
-                Some(Token::End) => Err(Error::CloseParen),
-                Some(Token::Not) => Err(Error::Not),
-                Some(Token::Begin) => Err(Error::OpenParen),
-                Some(Token::Other(_)) => Err(Error::Other),
-                Some(Token::Or) | Some(Token::And) => unreachable!("in parse/Some(Or|And)"),
-                None => Ok(e),
-            }
+        Expr::expr(&mut stream).and_then(|e| match stream.next() {
+            Some(Token::End) => Err(Error::CloseParen),
+            Some(Token::Not) => Err(Error::Not),
+            Some(Token::Begin) => Err(Error::OpenParen),
+            Some(Token::Other(_)) => Err(Error::Other),
+            Some(Token::Or) | Some(Token::And) => unreachable!("in parse/Some(Or|And)"),
+            None => Ok(e),
         })
     }
 
-    fn expr<I>(stream: &mut Peekable<I>) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
+    fn expr<I>(stream: &mut Peekable<I>) -> ParseResult<T>
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         let mut summands = Vec::new();
         summands.push(Expr::term(stream)?);
         while let Some(&Token::Or) = stream.peek() {
@@ -189,7 +193,10 @@ impl<T> Expr<T> where {
         }
     }
 
-    fn term<I>(stream: &mut Peekable<I>) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
+    fn term<I>(stream: &mut Peekable<I>) -> ParseResult<T>
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         let mut factors = Vec::new();
         factors.push(Expr::factor(stream)?);
         while let Some(&Token::And) = stream.peek() {
@@ -203,7 +210,10 @@ impl<T> Expr<T> where {
         }
     }
 
-    fn factor<I>(stream: &mut Peekable<I>) -> ParseResult<T> where I: Iterator<Item=Token<T>> {
+    fn factor<I>(stream: &mut Peekable<I>) -> ParseResult<T>
+    where
+        I: Iterator<Item = Token<T>>,
+    {
         match stream.next() {
             Some(Token::Not) => Ok(Expr::Not(Box::new(Expr::factor(stream)?))),
             Some(Token::Begin) => {
@@ -216,7 +226,7 @@ impl<T> Expr<T> where {
                     Some(Token::Or) | Some(Token::And) => unreachable!("in factor/Begin"),
                     None => Err(Error::EndOfInput),
                 }
-            },
+            }
             Some(Token::Or) => Err(Error::Or),
             Some(Token::And) => Err(Error::And),
             Some(Token::End) => Err(Error::CloseParen),

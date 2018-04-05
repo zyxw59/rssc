@@ -1,4 +1,5 @@
-#[macro_use] extern crate lazy_static;
+#[macro_use]
+extern crate lazy_static;
 extern crate radix_trie;
 extern crate regex;
 extern crate unicode_categories;
@@ -37,8 +38,11 @@ fn main() {
                 let line = line + "\n";
                 let tokens = token::Tokens::new(line.as_ref(), segments.clone());
                 println!("{:?}", tokens.collect::<Vec<_>>());
-            },
-            Err(err) => {println!("Error: {}", err); break;},
+            }
+            Err(err) => {
+                println!("Error: {}", err);
+                break;
+            }
         }
     }
 }

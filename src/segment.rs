@@ -103,7 +103,6 @@ impl Segment {
     }
 }
 
-
 impl convert::From<char> for Segment {
     /// Generates a `Segment` corresponding to the given `char`
     fn from(c: char) -> Segment {
@@ -113,7 +112,6 @@ impl convert::From<char> for Segment {
         }
     }
 }
-
 
 impl Token for Segment {
     /// Returns `false` if the segment is a single space, `true` otherwise.
@@ -143,9 +141,7 @@ fn is_modifier(c: char) -> bool {
         // check against superscripts and subscripts block
         || ('\u{2070}' <= c && c <= '\u{209f}')
         // otherwise, check if c is in the named classes
-        || c.is_letter_modifier()
-        || c.is_mark()
-        || c.is_symbol_modifier()
+        || c.is_letter_modifier() || c.is_mark() || c.is_symbol_modifier()
 }
 
 /// Checks if a character is a modifier combining two characters

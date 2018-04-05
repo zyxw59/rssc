@@ -1,5 +1,5 @@
 use std::cmp;
-use std::collections::{BTreeSet,HashMap,HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::collections::hash_map::Entry;
 
 use segment::Segment;
@@ -21,10 +21,12 @@ pub struct Category {
 
 impl Category {
     /// Constructs a category from a name and a vector of elements
-    pub fn new<T1, T2, I>(name: T1, elements: I) -> Category where
-    T1: Into<String>,
-    T2: Into<String>,
-    I: IntoIterator<Item=T2> {
+    pub fn new<T1, T2, I>(name: T1, elements: I) -> Category
+    where
+        T1: Into<String>,
+        T2: Into<String>,
+        I: IntoIterator<Item = T2>,
+    {
         let name = name.into();
         let els = elements.into_iter();
         let n = els.size_hint();
@@ -65,13 +67,13 @@ impl Category {
                             key: !e.len(),
                             value: i,
                         });
-                    },
+                    }
                     Entry::Occupied(mut entry) => {
                         // store the index in this entry
                         entry.get_mut().push(i);
                         // no need to put it in the sorted list, because we've already seen it (and
                         // a|b|a matches the same things as a|b)
-                    },
+                    }
                 }
             }
             // push the element
@@ -81,7 +83,11 @@ impl Category {
             Regex::Set(set)
         } else {
             Regex::Alternate(
-                sorted.iter().map(|x| Regex::Literal(elements[x.value].clone())).collect())
+                sorted
+                    .iter()
+                    .map(|x| Regex::Literal(elements[x.value].clone()))
+                    .collect(),
+            )
         };
         Category {
             elements,
@@ -93,7 +99,7 @@ impl Category {
 }
 
 /// A struct for sorting arbitrary data by an arbitrary key
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 struct SortKey<T> {
     pub key: usize,
     pub value: T,

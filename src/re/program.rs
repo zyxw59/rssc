@@ -52,7 +52,7 @@ impl Thread {
     /// Create a new `Thread` with the specified instruction pointer and the given list of saved
     /// locations.
     fn new(pc: InstrPtr, saved: SaveList) -> Thread {
-        Thread {pc, saved}
+        Thread { pc, saved }
     }
 }
 
@@ -74,11 +74,13 @@ impl ThreadList {
     /// locations. If `pc` points to a `Jump`, `Split`, `JSplit`, or `Save` instruction, calls
     /// `add_thread` recursively, so that the active `ThreadList` never contains pointers to those
     /// instructions.
-    fn add_thread<T: Token>(&mut self,
-                            pc: InstrPtr,
-                            in_idx: usize,
-                            prog: &Program<T>,
-                            mut saved: SaveList) {
+    fn add_thread<T: Token>(
+        &mut self,
+        pc: InstrPtr,
+        in_idx: usize,
+        prog: &Program<T>,
+        mut saved: SaveList,
+    ) {
         // don't check if there's already a thread with this `pc` on the list, because we want to
         // keep alternate paths alive, in case they produce different submatch values.
         use self::Instr::*;
@@ -89,30 +91,30 @@ impl ThreadList {
                 // clone the `saved` vector so we can use it again in the second branch
                 self.add_thread(pc + 1, in_idx, prog, saved.clone());
                 self.add_thread(split, in_idx, prog, saved);
-            },
+            }
             JSplit(split) => {
                 // call `add_thread` recursively
                 // branch with jump is higher priority
                 // clone the `saved` vector so we can use it again in the second branch
                 self.add_thread(split, in_idx, prog, saved.clone());
                 self.add_thread(pc + 1, in_idx, prog, saved);
-            },
+            }
             Jump(jump) => {
                 // call `add_thread` recursively
                 // jump to specified pc
                 self.add_thread(jump, in_idx, prog, saved);
-            },
+            }
             Save(idx) => {
                 // save index
                 saved[idx] = Some(in_idx);
                 // and recursively add next instruction
                 self.add_thread(pc + 1, in_idx, prog, saved);
-            },
-            Reject => {},  // do nothing, this thread is dead
+            }
+            Reject => {} // do nothing, this thread is dead
             Token(_) | Map(_) | Set(_) | Any | WordBoundary | Match => {
                 // push a new thread with the given pc
                 self.threads.push(Thread::new(pc, saved));
-            },
+            }
         }
     }
 }
@@ -140,12 +142,15 @@ pub struct Program<T: Token> {
 
 impl<T: Token> Program<T> {
     pub fn new(prog: Vec<Instr<T>>, num_slots: usize) -> Program<T> {
-        Program {prog, num_slots}
+        Program { prog, num_slots }
     }
 
     /// Executes the program. Returns a vector of matches found. For each match, the positions of
     /// all the save locations are stored in a vector
-    pub fn exec<I>(&self, input: I) -> Vec<SaveList> where I: IntoIterator<Item=T> {
+    pub fn exec<I>(&self, input: I) -> Vec<SaveList>
+    where
+        I: IntoIterator<Item = T>,
+    {
         // initialize thread lists. The number of threads should be limited by the length of the
         // program (since each instruction either ends a thread (in the case of a `Match` or a
         // failed `Token` instruction), continues an existing thread (in the case of a successful
@@ -184,7 +189,7 @@ impl<T: Token> Program<T> {
                             // positions
                             next.add_thread(th.pc + 1, i + 1, self, th.saved);
                         }
-                    },
+                    }
                     Set(ref set) => {
                         // check if token in set
                         if set.contains(tok_i) {
@@ -192,32 +197,35 @@ impl<T: Token> Program<T> {
                             // positions
                             next.add_thread(th.pc + 1, i + 1, self, th.saved);
                         }
-                    },
+                    }
                     Map(ref map) => {
                         // get the corresponding pc, or default to incrementing
                         next.add_thread(
                             map.get(tok_i).cloned().unwrap_or(th.pc + 1),
-                            i + 1, self, th.saved);
-                    },
+                            i + 1,
+                            self,
+                            th.saved,
+                        );
+                    }
                     Any => {
                         // always matches
                         next.add_thread(th.pc + 1, i + 1, self, th.saved);
-                    },
+                    }
                     WordBoundary => {
                         // check if word boundary
                         if word_boundary {
                             next.add_thread(th.pc + 1, i, self, th.saved);
                         }
-                    },
+                    }
                     Match => {
                         // add the saved locations to the final list
                         saves.push(th.saved);
-                    },
+                    }
                     // These instructions are handled in add_thread, so the current thread should
                     // never point to one of them
                     Split(_) | JSplit(_) | Jump(_) | Save(_) | Reject => {
                         unreachable!();
-                    },
+                    }
                 }
             }
             // `next` becomes list of active threads, and `curr` (empty after iteration) can hold
@@ -236,10 +244,10 @@ impl<T: Token> Program<T> {
                     if word {
                         next.add_thread(th.pc + 1, i, self, th.saved);
                     }
-                },
+                }
                 Match => {
                     saves.push(th.saved);
-                },
+                }
                 // anything else is a failed match
                 _ => {}
             }
@@ -251,7 +259,7 @@ impl<T: Token> Program<T> {
             match self[th.pc] {
                 Match => {
                     saves.push(th.saved);
-                },
+                }
                 // anything else is a failed match
                 _ => {}
             }

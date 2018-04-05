@@ -14,4 +14,3 @@ impl Token for char {
         !self.is_whitespace()
     }
 }
-
