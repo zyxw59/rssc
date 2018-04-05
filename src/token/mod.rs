@@ -1,3 +1,4 @@
+use std::error;
 use std::fmt;
 use std::io::{self, BufRead};
 use std::ops::Add;
@@ -153,12 +154,7 @@ impl<R: BufRead> Tokens<R> {
     }
 
     /// Fills the internal incoming and outgoing buffers
-    ///
-    /// # Panics
-    ///
-    /// Panics if a line cannot be tokenized.
-    /// TODO: This should return an error, rather than panicking.
-    fn fill_buffer(&mut self) -> io::Result<()> {
+    fn fill_buffer(&mut self) -> Result<(), Error> {
         // only fill buffer if necessary
         if self.index >= self.out_buffer.len() {
             // reset index
@@ -175,9 +171,7 @@ impl<R: BufRead> Tokens<R> {
                 return Ok(());
             }
             // extract segment boundaries
-            let saves = self.re.exec(chars.iter());
-            // TODO: return an error here, don't just panic
-            let saves = saves.expect("no valid tokenization of line");
+            let saves = self.re.exec(chars.iter()).ok_or(Error::InvalidTokenization)?;
             for (start, end) in saves.iter().zip(saves[1..].iter()) {
                 // extract the sgement
                 let seg = Segment::from(&chars[*start..*end]);
@@ -210,5 +204,39 @@ impl<R: BufRead> Iterator for Tokens<R> {
             }
             None => None,
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum Error {
+    InvalidTokenization,
+    IO(io::Error),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match self {
+            &Error::InvalidTokenization => "No valid tokenization",
+            &Error::IO(ref err) => err.description(),
+        }
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        match self {
+            &Error::InvalidTokenization => None,
+            &Error::IO(ref err) => Some(err),
+        }
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Error {
+        Error::IO(err)
     }
 }
