@@ -189,7 +189,6 @@ impl<R: BufRead> Tokens<R> {
                 // push the token into the output buffer
                 self.out_buffer.push(tok);
             }
-            self.out_buffer.push(Token::from_u8(b'\n'));
         }
         Ok(())
     }

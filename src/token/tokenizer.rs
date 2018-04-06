@@ -16,7 +16,7 @@ mod tests {
         println!("{}", prog);
 
         let saves = prog.exec(line);
-        assert_eq!(saves, Some(vec![0, 2, 3, 5]));
+        assert_eq!(saves, Some(vec![0, 2, 3, 5, 6]));
     }
 
     #[test]
@@ -28,12 +28,24 @@ mod tests {
         println!("{}", prog);
 
         let saves = prog.exec(line);
-        assert_eq!(saves, Some(vec![0, 3]));
+        assert_eq!(saves, Some(vec![0, 3, 4]));
     }
 
     #[test]
     fn backslash() {
         let line = String::from("\\.\n");
+        let line = line.chars().nfd();
+        let segments = SegmentMap::clone_from_vec(&Vec::new());
+        let prog = matcher(&segments);
+        println!("{}", prog);
+
+        let saves = prog.exec(line);
+        assert_eq!(saves, Some(vec![0, 2, 3]));
+    }
+
+    #[test]
+    fn backslash_newline() {
+        let line = String::from("\\\n");
         let line = line.chars().nfd();
         let segments = SegmentMap::clone_from_vec(&Vec::new());
         let prog = matcher(&segments);
@@ -61,6 +73,9 @@ pub fn matcher(segments: &SegmentMap) -> Program {
     split = prog.len();
     prog.push(Instr::Split(0));
     prog.push(Instr::Char('\\'));
+    prog.push(Instr::Split(split + 5));
+    prog.push(Instr::Char('\n'));
+    prog.push(Instr::Jump(0));
     prog.push(Instr::Any);
     let escape_jump = prog.len();
     prog.push(Instr::Jump(0));
@@ -69,6 +84,8 @@ pub fn matcher(segments: &SegmentMap) -> Program {
     split = prog.len();
     prog.push(Instr::Split(0));
     prog.push(Instr::Char('\n'));
+    prog[escape_jump - 2] = Instr::Jump(prog.len());
+    prog.push(Instr::Save);
     prog.push(Instr::Match);
     // match user-defined segments
     for seg in segments.iter() {
