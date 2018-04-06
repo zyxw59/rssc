@@ -33,6 +33,8 @@ pub enum Instr<R> {
     Save,
     /// The end of a match.
     Match,
+    /// Matches only if at the end of input.
+    MatchEnd,
 }
 
 impl<R: fmt::Display> fmt::Display for Instr<R> {
@@ -43,6 +45,7 @@ impl<R: fmt::Display> fmt::Display for Instr<R> {
             &Instr::Jump(x) => write!(f, "Jump({:02X})", x),
             &Instr::Save => write!(f, "Save"),
             &Instr::Match => write!(f, "Match"),
+            &Instr::MatchEnd => write!(f, "MatchEnd"),
         }
     }
 }
@@ -153,7 +156,7 @@ impl ThreadList {
                 // and recursively add next instruction
                 self.add_thread(pc + 1, in_idx, prog, saved, last);
             }
-            Token(_) | Match => {
+            Token(_) | Match | MatchEnd => {
                 // push a new thread with the given pc
                 self.threads.push(Thread::new(pc, saved));
             }
@@ -191,10 +194,10 @@ impl<R: RegexExtension> Program<R> {
         I: IntoIterator<Item = C>,
     {
         // initialize thread lists. The number of threads should be limited by the length of the
-        // program (since each instruction either ends a thread (in the case of a `Match` or a
-        // failed `Token` instruction), continues an existing thread (in the case of a successful
-        // `Token`, `Jump`, or `Save` instruction), or spawns a new thread (in the case of a `Split`
-        // instruction))
+        // program (since each instruction either ends a thread (in the case of a `Match`, a
+        // `MatchEnd` or a failed `Token` instruction), continues an existing thread (in the case
+        // of a successful `Token`, `Jump`, or `Save` instruction), or spawns a new thread (in the
+        // case of a `Split` instruction))
         let mut curr = ThreadList::new(self.prog.len());
         let mut next = ThreadList::new(self.prog.len());
         let mut last = vec![OptionUsize::none(); self.prog.len()];
@@ -224,6 +227,7 @@ impl<R: RegexExtension> Program<R> {
                         // add the saved locations to the final list
                         saves.push(th.saved);
                     }
+                    MatchEnd => {} // we're not at the end of input, so we must fail to match
                     // These instructions are handled in add_thread, so the current thread should
                     // never point to one of them
                     Split(_) | Jump(_) | Save => {
@@ -240,7 +244,7 @@ impl<R: RegexExtension> Program<R> {
         for th in &mut curr {
             use self::Instr::*;
             match self[th.pc] {
-                Match => {
+                Match | MatchEnd => {
                     saves.push(th.saved);
                 }
                 // anything else is a failed match
