@@ -2,7 +2,9 @@ use std::error;
 use std::fmt;
 
 pub mod environment;
+mod re;
 pub mod regex;
+pub mod tokenizer;
 
 /// An error encountered during parsing.
 #[derive(Clone, Copy, Debug, PartialEq)]

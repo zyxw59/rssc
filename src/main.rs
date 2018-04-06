@@ -36,7 +36,7 @@ fn main() {
         match line {
             Ok(line) => {
                 let line = line + "\n";
-                let tokens = token::Tokens::new(line.as_ref(), segments.clone());
+                let tokens = parser::tokenizer::Tokens::new(line.as_ref(), segments.clone());
                 println!("{:?}", tokens.collect::<Vec<_>>());
             }
             Err(err) => {
