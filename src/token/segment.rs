@@ -45,10 +45,12 @@ impl SegmentMap {
             panic!("Segment with zero length");
         }
         if key.len() == 1 && key[0] <= '\x7F' {
-            Token::from_u8(key[0] as u8)
+            Token::try_from_u8(key[0] as u8)
         } else if key.len() == 2 && key[0] == '\\' && key[1] <= '\x7F' {
-            Token::from_u8_escaped(key[1] as u8)
+            Token::try_from_u8_escaped(key[1] as u8)
         } else {
+            None
+        }.unwrap_or_else(|| {
             self.pad(key.len());
             let entry = self.vec[key.len() - 1].entry(key);
             let max_token = self.max_token + 1;
@@ -57,7 +59,7 @@ impl SegmentMap {
                 self.max_token = token;
             }
             token
-        }
+        })
     }
 
     /// Returns an iterator over the `Segment`s in order of decreasing length.

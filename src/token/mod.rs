@@ -26,7 +26,7 @@ macro_rules! enum_const {
 
             /// Attempts to generate a value corresponding to the given `u8` if it is one of the
             /// enumerated `u8`s, or `None` otherwise.
-            pub fn try_from_u8(c: u8) -> Option<$main> {
+            fn try_enum(c: u8) -> Option<$main> {
                 match c {
                     $( $value => Some($main::$id), )*
                     _ => None,
@@ -93,19 +93,33 @@ impl Token {
         Token((index as u16) + 0x80)
     }
 
-    /// Creates a `Token` from the given byte. If it is a control character, returns the
-    /// corresponding value in the range `0x00 ... 0x1F`. Otherwise, returns the numeric value of
-    /// the byte.
-    pub fn from_u8(c: u8) -> Token {
-        match Token::try_from_u8(c) {
-            Some(t) => t,
-            None => Token(c as u16),
-        }
+    /// Attempts to create a `Token` from the given byte. If it is a control character, this
+    /// returns the corresponding value in the range `0x00 ... 0x1F`. Otherwise, if the byte is in
+    /// the range `0x20 ... 0x7F`, this returns the numeric value of the byte. If the byte is
+    /// outside of that range, then it returns `None`.
+    pub fn try_from_u8(c: u8) -> Option<Token> {
+        Token::try_enum(c).or_else(|| {
+            if c > 0x20 && c < 0x7F {
+                Some(Token(c as u16))
+            } else {
+                None
+            }
+        })
     }
 
-    /// Creates a `Token` from the given byte, always returning the numeric value of the byte.
-    pub fn from_u8_escaped(c: u8) -> Token {
-        Token(c as u16)
+    /// Creates a `Token` from the given byte, escaping control characters. If the byte is a
+    /// newline, this returns `Token(0x20)`, i.e. a space. If the byte is any other control
+    /// character, it returns a `Token` with the literal value of the byte (_not_ the value
+    /// associated with the control character). Otherwise, returns `None`.
+    pub fn try_from_u8_escaped(c: u8) -> Option<Token> {
+        match c {
+            b'\n' => Some(Token(0x20)),
+            _ => if Token::is_enumerated(c) {
+                Some(Token(c as u16))
+            } else {
+                None
+            },
+        }
     }
 
     /// Returns whether the given `char` is a control character.
