@@ -14,61 +14,62 @@ mod tests {
     #[test]
     fn program() {
         use self::Instr::*;
+        use self::TokenizerExtension::*;
         let prog = vec![
             // 0
             Split(3),
             // 1
-            ControlChar,
+            Token(ControlChar),
             // 2
             Jump(28),
             // 3
             Split(6),
             // 4
-            Char('\\'),
+            Token(Char('\\')),
             // 5
             Jump(21),
             // 6
             Split(10),
             // 7
-            Char('a'),
+            Token(Char('a')),
             // 8
-            Char('n'),
+            Token(Char('n')),
             // 9
             Jump(28),
             // 10
             Split(14),
             // 11
-            Char('n'),
+            Token(Char('n')),
             // 12
-            Char('t'),
+            Token(Char('t')),
             // 13
             Jump(28),
             // 14
             Split(18),
             // 15
-            Char('t'),
+            Token(Char('t')),
             // 16
-            Char('s'),
+            Token(Char('s')),
             // 17
             Jump(28),
             // 18
             Split(21),
             // 19
-            Char('\n'),
+            Token(Char('\n')),
             // 20
             Match,
             // 21
-            BaseChar,
+            Token(BaseChar),
             // 22
             Split(25),
             // 23
-            CombiningChar,
+            Token(CombiningChar),
             // 24
             Jump(22),
             // 25
             Split(28),
             // 26
-            CombiningDouble,
+            Token(CombiningDouble),
             // 27
             Jump(21),
             // 28
@@ -84,7 +85,16 @@ mod tests {
     #[test]
     fn combining_double() {
         use self::Instr::*;
-        let program = Program::new(vec![BaseChar, CombiningDouble, BaseChar, Match], 0);
+        use self::TokenizerExtension::*;
+        let program = Program::new(
+            vec![
+                Token(BaseChar),
+                Token(CombiningDouble),
+                Token(BaseChar),
+                Match,
+            ],
+            0,
+        );
         let saves = program.exec("t͜s".chars());
         println!("{:?}", "t͜s".chars().collect::<Vec<_>>());
         assert!(saves.is_some());
@@ -94,9 +104,21 @@ mod tests {
 /// Type for indexing into a program
 pub type InstrPtr = usize;
 
-/// A single instruction
-#[derive(Debug)]
-pub enum Instr {
+/// A trait for extensions to the Regex engine.
+///
+/// An extension provides instructions to the Regex engine for matching characters, while the base
+/// `Instr` type provides the control-flow instructions.
+pub trait RegexExtension {
+    /// The type of token matched.
+    type Token: Copy;
+
+    /// Determines whether the given character matches the instruction.
+    fn is_match(&self, tok: Self::Token) -> bool;
+}
+
+/// A `RegexExtension` for the tokenizer.
+#[derive(Clone, Copy, Debug)]
+pub enum TokenizerExtension {
     /// Matches a single char.
     Char(char),
     /// Matches any character.
@@ -109,6 +131,35 @@ pub enum Instr {
     CombiningChar,
     /// Matches a combining double character.
     CombiningDouble,
+}
+
+impl RegexExtension for TokenizerExtension {
+    type Token = char;
+
+    fn is_match(&self, tok: char) -> bool {
+        use self::TokenizerExtension::*;
+        match *self {
+            Char(ch) => tok == ch,
+            Any => true,
+            ControlChar => super::Token::is_control_char(tok),
+            BaseChar => !is_modifier(tok),
+            CombiningChar => is_modifier(tok),
+            CombiningDouble => is_combining_double(tok),
+        }
+    }
+}
+
+impl fmt::Display for TokenizerExtension {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+/// A single instruction
+#[derive(Debug)]
+pub enum Instr<R> {
+    /// Matches a token using the `RegexExtension`.
+    Token(R),
     /// Splits into two states, preferring not to jump.
     Split(InstrPtr),
     /// Jumps to a new point in the program.
@@ -119,12 +170,14 @@ pub enum Instr {
     Match,
 }
 
-impl fmt::Display for Instr {
+impl<R: fmt::Display> fmt::Display for Instr<R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Instr::Split(x) => write!(f, "Split({:02X})", x),
-            Instr::Jump(x) => write!(f, "Jump({:02X})", x),
-            _ => write!(f, "{:?}", self),
+        match self {
+            &Instr::Token(ref r) => write!(f, "Token({})", r),
+            &Instr::Split(x) => write!(f, "Split({:02X})", x),
+            &Instr::Jump(x) => write!(f, "Jump({:02X})", x),
+            &Instr::Save => write!(f, "Save"),
+            &Instr::Match => write!(f, "Match"),
         }
     }
 }
@@ -199,11 +252,11 @@ impl ThreadList {
     /// Add a new `Thread` with the specified instruction pointer, and the given list of saved
     /// locations. If `pc` points to a `Jump`, `Split`, or `Save` instruction, calls `add_thread`
     /// recursively, so that the active `ThreadList` never contains pointers to those instructions.
-    fn add_thread(
+    fn add_thread<R>(
         &mut self,
         pc: InstrPtr,
         in_idx: usize,
-        prog: &Program,
+        prog: &Program<R>,
         mut saved: SaveList,
         last: &mut Vec<OptionUsize>,
     ) {
@@ -235,7 +288,7 @@ impl ThreadList {
                 // and recursively add next instruction
                 self.add_thread(pc + 1, in_idx, prog, saved, last);
             }
-            Char(_) | Any | ControlChar | BaseChar | CombiningChar | CombiningDouble | Match => {
+            Token(_) | Match => {
                 // push a new thread with the given pc
                 self.threads.push(Thread::new(pc, saved));
             }
@@ -254,28 +307,28 @@ impl<'a> IntoIterator for &'a mut ThreadList {
 
 /// A program for the VM
 #[derive(Debug)]
-pub struct Program {
+pub struct Program<R> {
     /// List of instructions. `InstrPtr`s are indexed into this vector
-    prog: Vec<Instr>,
+    prog: Vec<Instr<R>>,
     /// First instruction to execute.
     start: InstrPtr,
 }
 
-impl Program {
-    pub fn new(prog: Vec<Instr>, start: InstrPtr) -> Program {
+impl<R: RegexExtension> Program<R> {
+    pub fn new(prog: Vec<Instr<R>>, start: InstrPtr) -> Program<R> {
         Program { prog, start }
     }
 
     /// Executes the program. Returns the positions of all the save locations if a match is found.
     pub fn exec<C, I>(&self, input: I) -> Option<SaveList>
     where
-        C: Borrow<char>,
+        C: Borrow<R::Token>,
         I: IntoIterator<Item = C>,
     {
         // initialize thread lists. The number of threads should be limited by the length of the
         // program (since each instruction either ends a thread (in the case of a `Match` or a
-        // failed `Char` instruction), continues an existing thread (in the case of a successful
-        // `Char`, `Jump`, or `Save` instruction), or spawns a new thread (in the case of a `Split`
+        // failed `Token` instruction), continues an existing thread (in the case of a successful
+        // `Token`, `Jump`, or `Save` instruction), or spawns a new thread (in the case of a `Split`
         // instruction))
         let mut curr = ThreadList::new(self.prog.len());
         let mut next = ThreadList::new(self.prog.len());
@@ -294,39 +347,11 @@ impl Program {
             for th in &mut curr {
                 use self::Instr::*;
                 match self[th.pc] {
-                    Char(ref ch_match) => {
+                    Token(ref matcher) => {
                         // check if char matches
-                        if ch_i == *ch_match {
+                        if matcher.is_match(ch_i) {
                             // increment thread pc, passing along next input index, and saved
                             // positions
-                            next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
-                        }
-                    }
-                    Any => {
-                        // always matches
-                        next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
-                    }
-                    ControlChar => {
-                        // check if the character is a control character
-                        if super::Token::is_control_char(ch_i) {
-                            next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
-                        }
-                    }
-                    BaseChar => {
-                        // check if the character is a base character
-                        if !is_modifier(ch_i) {
-                            next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
-                        }
-                    }
-                    CombiningChar => {
-                        // check if the character is a combining character
-                        if is_modifier(ch_i) {
-                            next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
-                        }
-                    }
-                    CombiningDouble => {
-                        // check if the character is a combining double character
-                        if is_combining_double(ch_i) {
                             next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
                         }
                     }
@@ -363,15 +388,15 @@ impl Program {
     }
 }
 
-impl Index<InstrPtr> for Program {
-    type Output = Instr;
+impl<R> Index<InstrPtr> for Program<R> {
+    type Output = Instr<R>;
 
-    fn index(&self, idx: InstrPtr) -> &Instr {
+    fn index(&self, idx: InstrPtr) -> &Instr<R> {
         self.prog.index(idx)
     }
 }
 
-impl fmt::Display for Program {
+impl<R: fmt::Display> fmt::Display for Program<R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, instr) in self.prog.iter().enumerate() {
             writeln!(f, "{:02X}: {}", i, instr)?;

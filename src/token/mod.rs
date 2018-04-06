@@ -147,7 +147,7 @@ impl fmt::Debug for Token {
 
 /// An `Iterator` that produces the tokens found in a `BufRead`.
 #[derive(Debug)]
-pub struct Tokens<R: BufRead> {
+pub struct Tokens<R> {
     input: R,
     in_buffer: String,
     out_buffer: Vec<Token>,
@@ -155,7 +155,7 @@ pub struct Tokens<R: BufRead> {
     line: usize,
     token_map: Vec<Segment>,
     segment_map: SegmentMap,
-    re: re::Program,
+    re: re::Program<re::TokenizerExtension>,
 }
 
 impl<R: BufRead> Tokens<R> {

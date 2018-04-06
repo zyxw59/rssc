@@ -1,5 +1,5 @@
 use super::segment::SegmentMap;
-use super::re::{Instr, Program};
+use super::re::{Instr, Program, TokenizerExtension};
 
 #[cfg(test)]
 mod tests {
@@ -57,33 +57,35 @@ mod tests {
 }
 
 /// Construct a regex program to split a line into segments.
-pub fn matcher(segments: &SegmentMap) -> Program {
+pub fn matcher(segments: &SegmentMap) -> Program<TokenizerExtension> {
     // the instructions
     let mut prog = Vec::new();
+
+    use self::TokenizerExtension::*;
 
     // save instruction, to be performed at the end of each token
     prog.push(Instr::Save);
     // match a control character
     let mut split = prog.len();
     prog.push(Instr::Split(0));
-    prog.push(Instr::ControlChar);
+    prog.push(Instr::Token(ControlChar));
     prog.push(Instr::Jump(0));
     // match a backslash-escaped character, which is considered as a single base character
     prog[split] = Instr::Split(prog.len());
     split = prog.len();
     prog.push(Instr::Split(0));
-    prog.push(Instr::Char('\\'));
+    prog.push(Instr::Token(Char('\\')));
     prog.push(Instr::Split(split + 5));
-    prog.push(Instr::Char('\n'));
+    prog.push(Instr::Token(Char('\n')));
     prog.push(Instr::Jump(0));
-    prog.push(Instr::Any);
+    prog.push(Instr::Token(Any));
     let escape_jump = prog.len();
     prog.push(Instr::Jump(0));
     // match a newline, and therefore the end of the string
     prog[split] = Instr::Split(prog.len());
     split = prog.len();
     prog.push(Instr::Split(0));
-    prog.push(Instr::Char('\n'));
+    prog.push(Instr::Token(Char('\n')));
     prog[escape_jump - 2] = Instr::Jump(prog.len());
     prog.push(Instr::Save);
     prog.push(Instr::Match);
@@ -93,7 +95,7 @@ pub fn matcher(segments: &SegmentMap) -> Program {
         split = prog.len();
         prog.push(Instr::Split(0));
         for c in seg {
-            prog.push(Instr::Char(*c));
+            prog.push(Instr::Token(Char(*c)));
         }
         prog.push(Instr::Jump(0));
     }
@@ -101,12 +103,12 @@ pub fn matcher(segments: &SegmentMap) -> Program {
     let base = prog.len();
     prog[escape_jump] = Instr::Jump(base + 1);
     prog[split] = Instr::Split(base);
-    prog.push(Instr::BaseChar);
+    prog.push(Instr::Token(BaseChar));
     prog.push(Instr::Split(base + 4));
-    prog.push(Instr::CombiningChar);
+    prog.push(Instr::Token(CombiningChar));
     prog.push(Instr::Jump(base + 1));
     prog.push(Instr::Split(0));
-    prog.push(Instr::CombiningDouble);
+    prog.push(Instr::Token(CombiningDouble));
     prog.push(Instr::Jump(base));
 
     Program::new(prog, 0)
