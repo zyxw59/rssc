@@ -12,7 +12,7 @@ mod tokenizer;
 use self::segment::{Segment, SegmentMap};
 
 macro_rules! enum_const {
-    ( $(#[$attr:meta])* $main:ident ($int:ty); $($value:pat => $id:ident),* $(,)* ) => {
+    ( $(#[$attr:meta])* $main:ident ($int:ty) { $($value:pat => $id:ident),* $(,)* } ) => {
         enum _Constants {
             $( $id, )*
         }
@@ -56,27 +56,28 @@ enum_const! {
     /// - All other tokens, including unicode characters, sequences involving combining diacritics, and
     ///   user-defined tokens, are mapped to the range `0x80 ... u16::MAX`
     #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
-    Token(u16);
-    b'.' => Dot,
-    b'*' => Star,
-    b'+' => Plus,
-    b'?' => Question,
-    b'(' => OpenParen,
-    b')' => CloseParen,
-    b'[' => OpenBracket,
-    b']' => CloseBracket,
-    b'|' => Pipe,
-    b'#' => Hash,
-    b'$' => Dollar,
-    b'0' => Zero,
-    b'{' => OpenBrace,
-    b'}' => CloseBrace,
-    b'>' => Arrow,
-    b'_' => Underscore,
-    b'/' => Slash,
-    b'!' => Exclam,
-    b'&' => And,
-    b'\n' => Newline,
+    Token(u16) {
+        b'.' => Dot,
+        b'*' => Star,
+        b'+' => Plus,
+        b'?' => Question,
+        b'(' => OpenParen,
+        b')' => CloseParen,
+        b'[' => OpenBracket,
+        b']' => CloseBracket,
+        b'|' => Pipe,
+        b'#' => Hash,
+        b'$' => Dollar,
+        b'0' => Zero,
+        b'{' => OpenBrace,
+        b'}' => CloseBrace,
+        b'>' => Arrow,
+        b'_' => Underscore,
+        b'/' => Slash,
+        b'!' => Exclam,
+        b'&' => And,
+        b'\n' => Newline,
+    }
 }
 
 impl Token {
