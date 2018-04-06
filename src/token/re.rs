@@ -143,7 +143,7 @@ impl RegexExtension for TokenizerExtension {
             Any => true,
             ControlChar => super::Token::is_control_char(tok),
             BaseChar => !is_modifier(tok),
-            CombiningChar => is_modifier(tok),
+            CombiningChar => is_modifier(tok) && !is_combining_double(tok),
             CombiningDouble => is_combining_double(tok),
         }
     }
@@ -415,15 +415,13 @@ impl<R: fmt::Display> fmt::Display for Program<R> {
 /// Or, if it is a superscript or subscript
 fn is_modifier(c: char) -> bool {
     // check against superscript 1, 2, and 3
-    (c == '\u{b9}' || c == '\u{b2}' || c == '\u{b3}'
-     // check against superscripts and subscripts block
-     || ('\u{2070}' <= c && c <= '\u{209f}')
-     // otherwise, check if c is in the named classes
-     || c.is_letter_modifier()
-     || c.is_mark()
-     || c.is_symbol_modifier())
-        // but don't allow combining double characters
-        && !is_combining_double(c)
+    c == '\u{b9}' || c == '\u{b2}' || c == '\u{b3}'
+        // check against superscripts and subscripts block
+        || ('\u{2070}' <= c && c <= '\u{209f}')
+        // otherwise, check if c is in the named classes
+        || c.is_letter_modifier()
+        || c.is_mark()
+        || c.is_symbol_modifier()
 }
 
 /// Checks if a character is a modifier combining two characters
