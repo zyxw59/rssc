@@ -134,6 +134,7 @@ pub struct Tokens<R: BufRead> {
     in_buffer: String,
     out_buffer: Vec<Token>,
     index: usize,
+    line: usize,
     token_map: Vec<Segment>,
     segment_map: SegmentMap,
     re: re::Program,
@@ -147,6 +148,7 @@ impl<R: BufRead> Tokens<R> {
             in_buffer: String::new(),
             out_buffer: Vec::new(),
             index: 0,
+            line: 0,
             token_map: Vec::new(),
             segment_map,
             re,
@@ -171,7 +173,10 @@ impl<R: BufRead> Tokens<R> {
                 return Ok(());
             }
             // extract segment boundaries
-            let saves = self.re.exec(chars.iter()).ok_or(Error::InvalidTokenization)?;
+            let saves = self.re
+                .exec(chars.iter())
+                .ok_or(Error::Tokenizing(self.line))?;
+            self.line += 1;
             for (start, end) in saves.iter().zip(saves[1..].iter()) {
                 // extract the sgement
                 let seg = Segment::from(&chars[*start..*end]);
@@ -191,46 +196,52 @@ impl<R: BufRead> Tokens<R> {
 }
 
 impl<R: BufRead> Iterator for Tokens<R> {
-    type Item = Token;
+    type Item = Result<Token, Error>;
 
-    fn next(&mut self) -> Option<Token> {
-        if self.fill_buffer().is_err() {
-            return None;
-        }
-        match self.out_buffer.get(self.index) {
-            Some(t) => {
-                self.index += 1;
-                Some(*t)
-            }
-            None => None,
+    fn next(&mut self) -> Option<Result<Token, Error>> {
+        match self.fill_buffer() {
+            Err(e) => Some(Err(e)),
+            Ok(()) => match self.out_buffer.get(self.index) {
+                Some(t) => {
+                    self.index += 1;
+                    Some(Ok(*t))
+                }
+                None => None,
+            },
         }
     }
 }
 
+/// An error encountered during tokenizing.
 #[derive(Debug)]
 pub enum Error {
-    InvalidTokenization,
+    /// The specified line lacked a valid tokenization.
+    Tokenizing(usize),
+    /// The specified IO error occurred.
     IO(io::Error),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        match *self {
+            Error::Tokenizing(line) => write!(f, "No valid tokenization of line {}", line),
+            Error::IO(ref err) => write!(f, "{}", err),
+        }
     }
 }
 
 impl error::Error for Error {
     fn description(&self) -> &str {
-        match self {
-            &Error::InvalidTokenization => "No valid tokenization",
-            &Error::IO(ref err) => err.description(),
+        match *self {
+            Error::Tokenizing(_) => "No valid tokenization",
+            Error::IO(ref err) => err.description(),
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
-        match self {
-            &Error::InvalidTokenization => None,
-            &Error::IO(ref err) => Some(err),
+        match *self {
+            Error::Tokenizing(_) => None,
+            Error::IO(ref err) => Some(err),
         }
     }
 }
