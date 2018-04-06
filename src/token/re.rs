@@ -5,8 +5,6 @@ use std::fmt;
 use std::mem;
 use std::ops::Index;
 
-use unicode_categories::UnicodeCategories;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,45 +112,6 @@ pub trait RegexExtension {
 
     /// Determines whether the given character matches the instruction.
     fn is_match(&self, tok: Self::Token) -> bool;
-}
-
-/// A `RegexExtension` for the tokenizer.
-#[derive(Clone, Copy, Debug)]
-pub enum TokenizerExtension {
-    /// Matches a single char.
-    Char(char),
-    /// Matches any character.
-    Any,
-    /// Matches a control character.
-    ControlChar,
-    /// Matches a non-combining character.
-    BaseChar,
-    /// Matches a combining character.
-    CombiningChar,
-    /// Matches a combining double character.
-    CombiningDouble,
-}
-
-impl RegexExtension for TokenizerExtension {
-    type Token = char;
-
-    fn is_match(&self, tok: char) -> bool {
-        use self::TokenizerExtension::*;
-        match *self {
-            Char(ch) => tok == ch,
-            Any => true,
-            ControlChar => super::Token::is_control_char(tok),
-            BaseChar => !is_modifier(tok),
-            CombiningChar => is_modifier(tok) && !is_combining_double(tok),
-            CombiningDouble => is_combining_double(tok),
-        }
-    }
-}
-
-impl fmt::Display for TokenizerExtension {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }
 
 /// A single instruction
@@ -403,28 +362,4 @@ impl<R: fmt::Display> fmt::Display for Program<R> {
         }
         Ok(())
     }
-}
-
-/// Checks if a character is a base character or a modifier. A character is considered a modifier
-/// if it is in one of the following unicode classes:
-/// - Lm (Letter, Modifier)
-/// - Mc (Mark, Spacing Combining)
-/// - Me (Mark, Enclosing)
-/// - Mn (Mark, Non-Spacing)
-/// - Sk (Symbol, Modifier)
-/// Or, if it is a superscript or subscript
-fn is_modifier(c: char) -> bool {
-    // check against superscript 1, 2, and 3
-    c == '\u{b9}' || c == '\u{b2}' || c == '\u{b3}'
-        // check against superscripts and subscripts block
-        || ('\u{2070}' <= c && c <= '\u{209f}')
-        // otherwise, check if c is in the named classes
-        || c.is_letter_modifier()
-        || c.is_mark()
-        || c.is_symbol_modifier()
-}
-
-/// Checks if a character is a modifier combining two characters
-fn is_combining_double(c: char) -> bool {
-    '\u{035c}' <= c && c <= '\u{0362}'
 }

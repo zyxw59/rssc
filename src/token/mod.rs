@@ -155,7 +155,7 @@ pub struct Tokens<R> {
     line: usize,
     token_map: Vec<Segment>,
     segment_map: SegmentMap,
-    re: re::Program<re::TokenizerExtension>,
+    re: re::Program<tokenizer::TokenizerExtension>,
 }
 
 impl<R: BufRead> Tokens<R> {
