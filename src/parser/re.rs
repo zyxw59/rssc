@@ -1,4 +1,4 @@
-//! A limited version of regex for performing tokenization of input
+//! A limited version of regex for tokenizing and parsing input.
 
 use std::borrow::Borrow;
 use std::fmt;
