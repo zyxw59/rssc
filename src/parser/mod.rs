@@ -1,6 +1,7 @@
 use std::error;
 use std::fmt;
 
+pub mod chunker;
 pub mod environment;
 mod re;
 pub mod regex;

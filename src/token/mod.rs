@@ -43,7 +43,7 @@ enum_const! {
     /// - Characters with special meaning in the rule file format, i.e.
     ///   - Regex control characters (`.*+?()[]|`)
     ///   - Characters with special meaning in patterns (`#$0{}`)
-    ///   - Characters which delimit the parser (`=:>_/!|&\n`)
+    ///   - Characters which delimit the parser (`=:>_/!|&\n\t `)
     ///   are mapped to the range `0x00 ... 0x1F`.
     /// - Printable ASCII characters (and backslash-escaped control characters) are mapped to their
     ///   ASCII values.
@@ -73,6 +73,8 @@ enum_const! {
         b'!' => Exclam,
         b'&' => And,
         b'\n' => Newline,
+        b'\t' => Tab,
+        b' ' => Space,
     }
 }
 
@@ -109,7 +111,7 @@ impl Token {
     /// associated with the control character). Otherwise, returns `None`.
     pub fn try_from_u8_escaped(c: u8) -> Option<Token> {
         match c {
-            b'\n' => Some(Token(0x20)),
+            b'\n' => Some(Token::Space),
             _ => if Token::is_enumerated(c) {
                 Some(Token(c as u16))
             } else {
@@ -121,6 +123,17 @@ impl Token {
     /// Returns whether the given `char` is a control character.
     pub fn is_control_char(c: char) -> bool {
         c <= '\x7F' && Token::is_enumerated(c as u8)
+    }
+
+    pub fn is_control_token(self) -> bool {
+        self < Token(0x20)
+    }
+
+    pub fn is_whitespace(self) -> bool {
+        match self {
+            Token::Newline | Token::Tab | Token::Space => true,
+            _ => false,
+        }
     }
 }
 
