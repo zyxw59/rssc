@@ -7,7 +7,7 @@ use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
 
 use token::Token;
-use token::segment::{Segment, SegmentMap};
+use token::{Segment, SegmentMap};
 
 use super::re::{Instr, Program, RegexExtension};
 

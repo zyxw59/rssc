@@ -3,6 +3,8 @@ use std::ops::Add;
 
 pub mod segment;
 
+pub use self::segment::{Segment, SegmentMap};
+
 macro_rules! enum_const {
     ( $(#[$attr:meta])* $main:ident ($int:ty) { $($value:pat => $id:ident),* $(,)* } ) => {
         enum _Constants {
