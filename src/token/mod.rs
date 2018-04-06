@@ -102,7 +102,7 @@ impl Token {
     /// outside of that range, then it returns `None`.
     pub fn try_from_u8(c: u8) -> Option<Token> {
         Token::try_enum(c).or_else(|| {
-            if c > 0x20 && c < 0x7F {
+            if c >= 0x20 && c <= 0x7F {
                 Some(Token(c as u16))
             } else {
                 None
