@@ -7,6 +7,7 @@ use token::Token;
 pub mod environment;
 mod re;
 pub mod regex;
+pub mod rule;
 pub mod tokenizer;
 
 #[cfg(test)]

@@ -137,11 +137,20 @@ impl Token {
         }
     }
 
-    /// Returns whether the token is a digit 0-9.
+    /// Returns whether the token is a digit.
     pub fn is_digit(self) -> bool {
         match self {
             Token::Zero | Token(0x30...0x39) => true,
             _ => false,
+        }
+    }
+
+    /// Returns the value of the token as a decimal digit, or `None` if it is not a digit.
+    pub fn digit_value(self) -> Option<u8> {
+        match self {
+            Token::Zero => Some(0),
+            Token(x @ 0x30...0x39) => Some(x as u8 - 0x30),
+            _ => None,
         }
     }
 }
