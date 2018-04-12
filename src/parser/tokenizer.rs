@@ -1,3 +1,5 @@
+//! A regex-based tokenizer which takes an input `char` stream and outputs a `Token` stream.
+
 use std::error;
 use std::fmt;
 use std::io::{self, BufRead};
