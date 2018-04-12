@@ -129,9 +129,18 @@ impl Token {
         self < Token(0x20)
     }
 
+    /// Returns whether the token is `' '`, `'\n'`, or `'\t'`.
     pub fn is_whitespace(self) -> bool {
         match self {
             Token::Newline | Token::Tab | Token::Space => true,
+            _ => false,
+        }
+    }
+
+    /// Returns whether the token is a digit 0-9.
+    pub fn is_digit(self) -> bool {
+        match self {
+            Token::Zero | Token(0x30...0x39) => true,
             _ => false,
         }
     }
