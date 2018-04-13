@@ -40,10 +40,10 @@ mod tests {
         let result = parser.parse_category();
         assert_eq!(
             result,
-            Ok(Category {
+            Ok(Pattern::Category(Category {
                 name: vec![c],
                 number: None,
-            })
+            }))
         );
     }
 
@@ -60,10 +60,10 @@ mod tests {
         let result = parser.parse_category();
         assert_eq!(
             result,
-            Ok(Category {
+            Ok(Pattern::Category(Category {
                 name: vec![c],
                 number: Some(3),
-            })
+            }))
         );
     }
 
@@ -299,7 +299,7 @@ where
             Some(Token::Dot) => Ok(Pattern::Any),
             Some(Token::Hash) => Ok(Pattern::WordBoundary),
             Some(Token::Dollar) => Ok(Pattern::SyllableBoundary),
-            Some(Token::OpenBracket) => self.parse_category().map(Pattern::Category),
+            Some(Token::OpenBracket) => self.parse_category(),
             Some(Token::OpenBrace) => self.parse_set(),
             Some(Token::OpenParen) => {
                 let value = self.parse_regex();
@@ -361,7 +361,7 @@ where
     /// Parses a category from the stream.
     ///
     /// This should be used _after_ the initial `{` has been popped.
-    fn parse_category(&mut self) -> Result<Category, Error> {
+    fn parse_category(&mut self) -> Result<Pattern, Error> {
         if let Some(&t) = self.peek() {
             if t.is_digit() {
                 // get the number
@@ -380,10 +380,10 @@ where
     }
 
     /// Finishes parsing a category, after the number (or lack thereof) has been matched.
-    fn finish_parse_category(&mut self, number: Option<u8>) -> Result<Category, Error> {
+    fn finish_parse_category(&mut self, number: Option<u8>) -> Result<Pattern, Error> {
         let name = self.parse_ident();
         match self.next() {
-            Some(Token::CloseBrace) => Ok(Category { name, number }),
+            Some(Token::CloseBrace) => Ok(Pattern::Category(Category { name, number })),
             Some(tok) => Err(Error::Token(self.index() - 1, tok)),
             None => Err(Error::EndOfInput),
         }
