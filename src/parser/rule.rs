@@ -4,6 +4,69 @@ use std::fmt;
 
 use token::Token;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_number() {
+        let input = vec![
+            Token::try_from_u8(b'1').unwrap(),
+            Token::try_from_u8(b'2').unwrap(),
+            Token::try_from_u8(b'3').unwrap(),
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let num = parser.parse_number();
+        assert_eq!(num, 123);
+        assert_eq!(parser.next(), None);
+    }
+
+    #[test]
+    fn parse_ident() {
+        let input = vec![
+            Token::try_from_u8(b'a').unwrap(),
+            Token::try_from_u8(b'b').unwrap(),
+            Token::try_from_u8(b'c').unwrap(),
+        ];
+        let mut parser = Parser(input.clone().into_iter().peekable(), 0);
+        let ident = parser.parse_ident();
+        assert_eq!(ident, input);
+    }
+
+    #[test]
+    fn parse_category_no_number() {
+        let input = vec![Token::try_from_u8(b'C').unwrap(), Token::CloseBrace];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_category();
+        assert_eq!(
+            result,
+            Ok(Category {
+                name: vec![Token::try_from_u8(b'C').unwrap()],
+                number: None,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_category_number() {
+        let input = vec![
+            Token::try_from_u8(b'3').unwrap(),
+            Token::Colon,
+            Token::try_from_u8(b'C').unwrap(),
+            Token::CloseBrace,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_category();
+        assert_eq!(
+            result,
+            Ok(Category {
+                name: vec![Token::try_from_u8(b'C').unwrap()],
+                number: Some(3),
+            })
+        );
+    }
+}
+
 struct Parser<I: Iterator>(Peekable<I>, usize);
 
 impl<I> Parser<I>
@@ -75,8 +138,16 @@ where
     /// Parses an identifier from the stream.
     fn parse_ident(&mut self) -> Ident {
         let mut id = Ident::new();
-        while !self.peek().map_or(false, |t| t.is_control_token()) {
-            id.push(self.next().unwrap());
+        // peek at the next token
+        while let Some(&tok) = self.peek() {
+            if !tok.is_control_token() {
+                // if it's not a control token, it's part of the ident
+                id.push(tok);
+                self.next();
+            } else {
+                // otherwise, we're done
+                break;
+            }
         }
         id
     }
@@ -84,6 +155,7 @@ where
 
 pub type Ident = Vec<Token>;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Category {
     /// The name of the category.
     pub name: Ident,
