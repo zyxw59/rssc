@@ -191,6 +191,15 @@ mod tests {
         let result = parser.parse_regex();
         assert_eq!(result, Err(Error::EndOfInput));
     }
+
+    #[test]
+    fn arrow() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Arrow];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Ok(Pattern::Literal(a)));
+    }
 }
 
 struct Parser<I: Iterator>(Peekable<I>, usize);
@@ -237,7 +246,15 @@ where
         while let Some(&tok) = self.peek() {
             match tok {
                 // these can never be a part of an element and should be passed up to the caller.
-                Token::Pipe | Token::CloseParen => break,
+                Token::Pipe
+                | Token::CloseParen
+                | Token::Arrow
+                | Token::Underscore
+                | Token::Slash
+                | Token::Exclam
+                | Token::And
+                | Token::Tab
+                | Token::Space => break,
                 // otherwise, parse an atom
                 _ => elems.push({
                     let atom = self.parse_atom()?;
