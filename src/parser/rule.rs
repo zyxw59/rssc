@@ -68,6 +68,17 @@ mod tests {
     }
 
     #[test]
+    fn parse_set() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let c = Token::try_from_u8(b'c').unwrap();
+        let input = vec![Token::OpenBrace, a, b, c, Token::CloseBrace];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Ok(Pattern::Set(vec![a, b, c])));
+    }
+
+    #[test]
     fn simple_expr() {
         let a = Token::try_from_u8(b'a').unwrap();
         let b = Token::try_from_u8(b'b').unwrap();
@@ -281,6 +292,7 @@ where
     /// - `$`, matching a syllable boundary
     /// - A category
     /// - A single token
+    /// - A set of tokens, enclosed in `[` `]`
     /// - A regular expression, enclosed in `(` `)`
     fn parse_atom(&mut self) -> Result<Pattern, Error> {
         match self.next() {
@@ -288,6 +300,7 @@ where
             Some(Token::Hash) => Ok(Pattern::WordBoundary),
             Some(Token::Dollar) => Ok(Pattern::SyllableBoundary),
             Some(Token::OpenBracket) => self.parse_category().map(Pattern::Category),
+            Some(Token::OpenBrace) => self.parse_set(),
             Some(Token::OpenParen) => {
                 let value = self.parse_regex();
                 match self.next() {
@@ -326,9 +339,28 @@ where
         }
     }
 
+    /// Parses a set of tokens from the stream.
+    ///
+    /// This should be used _after_ the initial `[` has been popped.
+    fn parse_set(&mut self) -> Result<Pattern, Error> {
+        let mut toks = Vec::new();
+        while let Some(&tok) = self.peek() {
+            if let Token::CloseBrace = tok {
+                self.next();
+                return Ok(Pattern::Set(toks));
+            } else if tok.is_control_token() {
+                return Err(Error::Token(self.index() - 1, tok));
+            } else {
+                self.next();
+                toks.push(tok);
+            }
+        }
+        Err(Error::EndOfInput)
+    }
+
     /// Parses a category from the stream.
     ///
-    /// This should be used _after_ the initial `'{'` has been popped.
+    /// This should be used _after_ the initial `{` has been popped.
     fn parse_category(&mut self) -> Result<Category, Error> {
         if let Some(&t) = self.peek() {
             if t.is_digit() {
@@ -405,6 +437,8 @@ pub struct Category {
 pub enum Pattern {
     /// Matches a literal token.
     Literal(Token),
+    /// Matches one of a set of literal tokens.
+    Set(Vec<Token>),
     /// Matches any single segment.
     Any,
     /// Matches a word boundary.
