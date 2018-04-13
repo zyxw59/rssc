@@ -23,25 +23,25 @@ mod tests {
 
     #[test]
     fn parse_ident() {
-        let input = vec![
-            Token::try_from_u8(b'a').unwrap(),
-            Token::try_from_u8(b'b').unwrap(),
-            Token::try_from_u8(b'c').unwrap(),
-        ];
-        let mut parser = Parser(input.clone().into_iter().peekable(), 0);
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let c = Token::try_from_u8(b'c').unwrap();
+        let input = vec![a, b, c];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
         let ident = parser.parse_ident();
-        assert_eq!(ident, input);
+        assert_eq!(ident, vec![a, b, c]);
     }
 
     #[test]
     fn parse_category_no_number() {
-        let input = vec![Token::try_from_u8(b'C').unwrap(), Token::CloseBrace];
+        let c = Token::try_from_u8(b'C').unwrap();
+        let input = vec![c, Token::CloseBrace];
         let mut parser = Parser(input.into_iter().peekable(), 0);
         let result = parser.parse_category();
         assert_eq!(
             result,
             Ok(Category {
-                name: vec![Token::try_from_u8(b'C').unwrap()],
+                name: vec![c],
                 number: None,
             })
         );
@@ -49,10 +49,11 @@ mod tests {
 
     #[test]
     fn parse_category_number() {
+        let c = Token::try_from_u8(b'C').unwrap();
         let input = vec![
             Token::try_from_u8(b'3').unwrap(),
             Token::Colon,
-            Token::try_from_u8(b'C').unwrap(),
+            c,
             Token::CloseBrace,
         ];
         let mut parser = Parser(input.into_iter().peekable(), 0);
@@ -60,10 +61,135 @@ mod tests {
         assert_eq!(
             result,
             Ok(Category {
-                name: vec![Token::try_from_u8(b'C').unwrap()],
+                name: vec![c],
                 number: Some(3),
             })
         );
+    }
+
+    #[test]
+    fn simple_expr() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let input = vec![a, Token::Pipe, b];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(
+            result,
+            Ok(Pattern::Alternate(vec![
+                Pattern::Literal(a),
+                Pattern::Literal(b),
+            ]))
+        );
+    }
+
+    #[test]
+    fn repeater() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Question];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(
+            result,
+            Ok(Pattern::Repeat(
+                Box::new(Pattern::Literal(a)),
+                Repeater::ZeroOrOne(true)
+            ))
+        );
+    }
+
+    #[test]
+    fn repeater_lazy() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Question, Token::Question];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(
+            result,
+            Ok(Pattern::Repeat(
+                Box::new(Pattern::Literal(a)),
+                Repeater::ZeroOrOne(false)
+            ))
+        );
+    }
+
+    #[test]
+    fn unexpected_question() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Question, Token::Question, Token::Question];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::Token(3, Token::Question)));
+    }
+
+    #[test]
+    fn unexpected_open() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::OpenParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn unexpected_open_2() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let input = vec![a, Token::Pipe, b, Token::OpenParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn unexpected_open_3() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Pipe, Token::OpenParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn nested() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![Token::OpenParen, a, Token::CloseParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Ok(Pattern::Literal(a)));
+    }
+
+    #[test]
+    fn missing_close() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![Token::OpenParen, a];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn doubly_nested() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![
+            Token::OpenParen,
+            Token::OpenParen,
+            a,
+            Token::CloseParen,
+            Token::CloseParen,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Ok(Pattern::Literal(a)));
+    }
+
+    #[test]
+    fn doubly_nested_mismatch() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![Token::OpenParen, Token::OpenParen, a, Token::CloseParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
     }
 }
 
@@ -113,7 +239,7 @@ where
                 // these can never be a part of an element and should be passed up to the caller.
                 Token::Pipe | Token::CloseParen => break,
                 // otherwise, parse an atom
-                tok => elems.push({
+                _ => elems.push({
                     let atom = self.parse_atom()?;
                     match self.parse_repeater() {
                         Some(rep) => Pattern::Repeat(Box::new(atom), rep),
