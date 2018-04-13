@@ -89,6 +89,100 @@ where
         self.1
     }
 
+    /// Parses a regular expression.
+    fn parse_regex(&mut self) -> Result<Pattern, Error> {
+        let mut terms = Vec::new();
+        terms.push(self.parse_term()?);
+        while let Some(&Token::Pipe) = self.peek() {
+            self.next();
+            terms.push(self.parse_term()?);
+        }
+        if terms.len() == 1 {
+            terms.into_iter().next().ok_or_else(|| unreachable!())
+        } else {
+            Ok(Pattern::Alternate(terms))
+        }
+    }
+
+    /// Parses a term of a regular expression, consisting of a string of atoms, possibly with
+    /// repeaters.
+    fn parse_term(&mut self) -> Result<Pattern, Error> {
+        let mut elems = Vec::new();
+        while let Some(&tok) = self.peek() {
+            match tok {
+                // these can never be a part of an element and should be passed up to the caller.
+                Token::Pipe | Token::CloseParen => break,
+                // otherwise, parse an atom
+                tok => elems.push({
+                    let atom = self.parse_atom()?;
+                    match self.parse_repeater() {
+                        Some(rep) => Pattern::Repeat(Box::new(atom), rep),
+                        None => atom,
+                    }
+                }),
+            }
+        }
+        if elems.len() == 1 {
+            elems.into_iter().next().ok_or_else(|| unreachable!())
+        } else {
+            Ok(Pattern::Concat(elems))
+        }
+    }
+
+    /// Parses a single atom of a regular expression.
+    ///
+    /// This can be one of the following:
+    ///
+    /// - `.`, matching any character
+    /// - `#`, matching a word boundary
+    /// - `$`, matching a syllable boundary
+    /// - A category
+    /// - A single token
+    /// - A regular expression, enclosed in `(` `)`
+    fn parse_atom(&mut self) -> Result<Pattern, Error> {
+        match self.next() {
+            Some(Token::Dot) => Ok(Pattern::Any),
+            Some(Token::Hash) => Ok(Pattern::WordBoundary),
+            Some(Token::Dollar) => Ok(Pattern::SyllableBoundary),
+            Some(Token::OpenBracket) => self.parse_category().map(Pattern::Category),
+            Some(Token::OpenParen) => {
+                let value = self.parse_regex();
+                match self.next() {
+                    Some(Token::CloseParen) => value,
+                    Some(_) => unreachable!("in parse_atom/OpenParen"),
+                    None => Err(Error::EndOfInput),
+                }
+            }
+            Some(tok) if tok.is_control_token() => Err(Error::Token(self.index() - 1, tok)),
+            Some(tok) => Ok(Pattern::Literal(tok)),
+            None => Err(Error::EndOfInput),
+        }
+    }
+
+    /// Parses a regular expression repeater.
+    ///
+    /// This can be one of `?`, `*`, or `+`, optionally followed by `?`.
+    fn parse_repeater(&mut self) -> Option<Repeater> {
+        match self.peek() {
+            Some(&Token::Question) => Some(Repeater::ZeroOrOne(self.parse_greed())),
+            Some(&Token::Star) => Some(Repeater::ZeroOrMore(self.parse_greed())),
+            Some(&Token::Plus) => Some(Repeater::OneOrMore(self.parse_greed())),
+            _ => None,
+        }
+    }
+
+    /// Parses whether a repeater is greedy.
+    fn parse_greed(&mut self) -> bool {
+        // because we just peeked at it in `parse_repeater`
+        self.next();
+        if let Some(&Token::Question) = self.peek() {
+            self.next();
+            false
+        } else {
+            true
+        }
+    }
+
     /// Parses a category from the stream.
     ///
     /// This should be used _after_ the initial `'{'` has been popped.
@@ -161,6 +255,47 @@ pub struct Category {
     pub name: Ident,
     /// The slot to associate the category with.
     pub number: Option<u8>,
+}
+
+/// A regular expression
+#[derive(Clone, Debug, PartialEq)]
+pub enum Pattern {
+    /// Matches a literal token.
+    Literal(Token),
+    /// Matches any single segment.
+    Any,
+    /// Matches a word boundary.
+    WordBoundary,
+    /// Matches a syllable boundary.
+    SyllableBoundary,
+    /// Matches an element of a category, optionally associating the index of the matched element
+    /// with a slot for further selection or replacement.
+    Category(Category),
+    /// Matches a repeating pattern
+    Repeat(Box<Pattern>, Repeater),
+    /// Matches a concatenation of two patterns
+    Concat(Vec<Pattern>),
+    /// Matches one of multiple patterns
+    Alternate(Vec<Pattern>),
+}
+
+/// A regular expression repetition. The boolean argument determines whether it is greedy.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Repeater {
+    ZeroOrOne(bool),
+    ZeroOrMore(bool),
+    OneOrMore(bool),
+}
+
+impl fmt::Display for Repeater {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Repeater::*;
+        match *self {
+            ZeroOrOne(greedy) => write!(f, "?{}", if greedy { "" } else { "?" }),
+            ZeroOrMore(greedy) => write!(f, "*{}", if greedy { "" } else { "?" }),
+            OneOrMore(greedy) => write!(f, "+{}", if greedy { "" } else { "?" }),
+        }
+    }
 }
 
 /// An error encountered during parsing.
