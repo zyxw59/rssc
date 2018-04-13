@@ -35,9 +35,9 @@ mod tests {
     #[test]
     fn parse_category_no_number() {
         let c = Token::try_from_u8(b'C').unwrap();
-        let input = vec![c, Token::CloseBrace];
+        let input = vec![Token::OpenBrace, c, Token::CloseBrace];
         let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_category();
+        let result = parser.parse_regex();
         assert_eq!(
             result,
             Ok(Pattern::Category(Category {
@@ -51,13 +51,14 @@ mod tests {
     fn parse_category_number() {
         let c = Token::try_from_u8(b'C').unwrap();
         let input = vec![
+            Token::OpenBrace,
             Token::try_from_u8(b'3').unwrap(),
             Token::Colon,
             c,
             Token::CloseBrace,
         ];
         let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_category();
+        let result = parser.parse_regex();
         assert_eq!(
             result,
             Ok(Pattern::Category(Category {
@@ -72,7 +73,7 @@ mod tests {
         let a = Token::try_from_u8(b'a').unwrap();
         let b = Token::try_from_u8(b'b').unwrap();
         let c = Token::try_from_u8(b'c').unwrap();
-        let input = vec![Token::OpenBrace, a, b, c, Token::CloseBrace];
+        let input = vec![Token::OpenBracket, a, b, c, Token::CloseBracket];
         let mut parser = Parser(input.into_iter().peekable(), 0);
         let result = parser.parse_regex();
         assert_eq!(result, Ok(Pattern::Set(vec![a, b, c])));
@@ -299,8 +300,8 @@ where
             Some(Token::Dot) => Ok(Pattern::Any),
             Some(Token::Hash) => Ok(Pattern::WordBoundary),
             Some(Token::Dollar) => Ok(Pattern::SyllableBoundary),
-            Some(Token::OpenBracket) => self.parse_category(),
-            Some(Token::OpenBrace) => self.parse_set(),
+            Some(Token::OpenBrace) => self.parse_category(),
+            Some(Token::OpenBracket) => self.parse_set(),
             Some(Token::OpenParen) => {
                 let value = self.parse_regex();
                 match self.next() {
@@ -345,7 +346,7 @@ where
     fn parse_set(&mut self) -> Result<Pattern, Error> {
         let mut toks = Vec::new();
         while let Some(&tok) = self.peek() {
-            if let Token::CloseBrace = tok {
+            if let Token::CloseBracket = tok {
                 self.next();
                 return Ok(Pattern::Set(toks));
             } else if tok.is_control_token() {
