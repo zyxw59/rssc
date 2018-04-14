@@ -1,7 +1,4 @@
-#[macro_use]
-extern crate lazy_static;
 extern crate radix_trie;
-extern crate regex;
 extern crate unicode_categories;
 extern crate unicode_normalization;
 

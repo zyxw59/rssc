@@ -2,6 +2,7 @@ use std::iter::Peekable;
 use std::error;
 use std::fmt;
 
+use ast::{Pattern, Repeater, Category, Ident};
 use token::Token;
 
 #[cfg(test)]
@@ -420,59 +421,6 @@ where
             }
         }
         id
-    }
-}
-
-pub type Ident = Vec<Token>;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Category {
-    /// The name of the category.
-    pub name: Ident,
-    /// The slot to associate the category with.
-    pub number: Option<u8>,
-}
-
-/// A regular expression
-#[derive(Clone, Debug, PartialEq)]
-pub enum Pattern {
-    /// Matches a literal token.
-    Literal(Token),
-    /// Matches one of a set of literal tokens.
-    Set(Vec<Token>),
-    /// Matches any single segment.
-    Any,
-    /// Matches a word boundary.
-    WordBoundary,
-    /// Matches a syllable boundary.
-    SyllableBoundary,
-    /// Matches an element of a category, optionally associating the index of the matched element
-    /// with a slot for further selection or replacement.
-    Category(Category),
-    /// Matches a repeating pattern
-    Repeat(Box<Pattern>, Repeater),
-    /// Matches a concatenation of two patterns
-    Concat(Vec<Pattern>),
-    /// Matches one of multiple patterns
-    Alternate(Vec<Pattern>),
-}
-
-/// A regular expression repetition. The boolean argument determines whether it is greedy.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Repeater {
-    ZeroOrOne(bool),
-    ZeroOrMore(bool),
-    OneOrMore(bool),
-}
-
-impl fmt::Display for Repeater {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Repeater::*;
-        match *self {
-            ZeroOrOne(greedy) => write!(f, "?{}", if greedy { "" } else { "?" }),
-            ZeroOrMore(greedy) => write!(f, "*{}", if greedy { "" } else { "?" }),
-            OneOrMore(greedy) => write!(f, "+{}", if greedy { "" } else { "?" }),
-        }
     }
 }
 
