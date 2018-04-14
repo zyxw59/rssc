@@ -22,11 +22,17 @@ pub enum ReplaceTok {
 }
 
 /// An environment for applying a rule.
-pub struct Environment {
-//    before: Pattern,
-//    after: Pattern,
-//    unbefore: Pattern,
-//    unafter: Pattern,
+#[derive(Clone, Debug, PartialEq)]
+pub enum Environment {
+    /// True iff _any_ of the expressions are true.
+    Or(Vec<Environment>),
+    /// True iff _all_ of the expressions are true.
+    And(Vec<Environment>),
+    /// True iff the expression is false.
+    Not(Box<Environment>),
+    /// True iff the first pattern matches before the match and the second pattern matches after
+    /// the match.
+    Pattern(Pattern, Pattern),
 }
 
 /// A regular expression.
