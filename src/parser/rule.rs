@@ -2,7 +2,7 @@ use std::iter::Peekable;
 use std::error;
 use std::fmt;
 
-use ast::{Pattern, Repeater, Category, Ident};
+use ast::{Category, Ident, Pattern, Repeater};
 use token::Token;
 
 #[cfg(test)]

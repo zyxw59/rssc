@@ -2,16 +2,26 @@ use std::fmt;
 
 use token::Token;
 
+/// A single sound change rule.
 pub struct Rule {
-//    search: Search,
-//    replace: Pattern,
+    /// The pattern to replace.
+    pub from: Pattern,
+    /// The replacement.
+    pub replace: Replace,
+    /// The environment in which to apply the rule.
+    pub environment: Environment,
 }
 
-pub struct Search {
-//    from: Pattern,
-//    environment: Environment,
+/// The replacement portion of a sound change rule.
+pub struct Replace(Vec<ReplaceTok>);
+
+/// A replacement token.
+pub enum ReplaceTok {
+    Token(Token),
+    Category(Category),
 }
 
+/// An environment for applying a rule.
 pub struct Environment {
 //    before: Pattern,
 //    after: Pattern,
@@ -19,7 +29,7 @@ pub struct Environment {
 //    unafter: Pattern,
 }
 
-/// A regular expression
+/// A regular expression.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Pattern {
     /// Matches a literal token.
@@ -100,6 +110,7 @@ impl fmt::Display for Repeater {
     }
 }
 
+/// A representation of a category in a sound change rule.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Category {
     /// The name of the category.
@@ -108,4 +119,5 @@ pub struct Category {
     pub number: Option<u8>,
 }
 
+/// A category name.
 pub type Ident = Vec<Token>;
