@@ -5,15 +5,21 @@ use token::Token;
 /// A single sound change rule.
 pub struct Rule {
     /// The pattern to replace.
-    pub from: Pattern,
+    pub search: Search,
     /// The replacement.
     pub replace: Replace,
     /// The environment in which to apply the rule.
     pub environment: Environment,
 }
 
+/// The pattern to replace in a sound change rule.
+pub enum Search {
+    Zero,
+    Pattern(Pattern),
+}
+
 /// The replacement portion of a sound change rule.
-pub struct Replace(Vec<ReplaceTok>);
+pub struct Replace(pub Vec<ReplaceTok>);
 
 /// A replacement token.
 pub enum ReplaceTok {
@@ -33,6 +39,8 @@ pub enum Environment {
     /// True iff the first pattern matches before the match and the second pattern matches after
     /// the match.
     Pattern(Pattern, Pattern),
+    /// Always true.
+    Everywhere,
 }
 
 /// A regular expression.

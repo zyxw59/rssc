@@ -2,7 +2,7 @@ use std::iter::Peekable;
 use std::error;
 use std::fmt;
 
-use ast::{Category, Ident, Pattern, Repeater};
+use ast::{Category, Environment, Ident, Pattern, Repeater, Replace, ReplaceTok, Rule, Search};
 use token::Token;
 
 #[cfg(test)]
@@ -237,6 +237,96 @@ where
         self.1
     }
 
+    /// Skips until the next non-whitespace character.
+    fn skip_whitespace(&mut self) {
+        while let Some(&tok) = self.peek() {
+            if tok.is_whitespace() {
+                self.next();
+            }
+        }
+    }
+
+    /// Parses a rule.
+    fn parse_rule(&mut self) -> Result<Rule, Error> {
+        // parse the search
+        let search = match self.peek() {
+            Some(&Token::Zero) => {
+                self.next();
+                Ok(Search::Zero)
+            }
+            Some(_) => self.parse_regex().map(Search::Pattern),
+            None => Err(Error::EndOfInput),
+        }?;
+        self.skip_whitespace();
+        // match the `>`
+        match self.next() {
+            Some(Token::Arrow) => Ok(()),
+            Some(tok) => Err(Error::Token(self.index() - 1, tok)),
+            None => Err(Error::EndOfInput),
+        }?;
+        self.skip_whitespace();
+        // parse the replace
+        let replace = match self.peek() {
+            Some(&Token::Zero) => {
+                self.next();
+                Ok(Replace(Vec::new()))
+            }
+            Some(_) => self.parse_replace(),
+            None => Err(Error::EndOfInput),
+        }?;
+        self.skip_whitespace();
+        // match `/` or `!`
+        let environment = match self.next() {
+            Some(Token::Slash) => {
+                self.skip_whitespace();
+                // positive environment
+                self.parse_environment()
+            }
+            Some(Token::Exclam) => {
+                self.skip_whitespace();
+                // negative environment
+                self.parse_environment().map(Box::new).map(Environment::Not)
+            }
+            Some(tok) => Err(Error::Token(self.index() - 1, tok)),
+            None => Ok(Environment::Everywhere),
+        }?;
+        self.skip_whitespace();
+        if let Some(tok) = self.next() {
+            Err(Error::Token(self.index() - 1, tok))
+        } else {
+            Ok(Rule {
+                search,
+                replace,
+                environment,
+            })
+        }
+    }
+
+    /// Parses a replacement string in a rule.
+    fn parse_replace(&mut self) -> Result<Replace, Error> {
+        let mut toks = Vec::new();
+        while let Some(&tok) = self.peek() {
+            match tok {
+                Token::OpenBrace => {
+                    self.next();
+                    toks.push(ReplaceTok::Category(self.parse_category()?));
+                }
+                Token::Slash | Token::Exclam => break,
+                tok if tok.is_whitespace() => break,
+                tok => {
+                    self.next();
+                    toks.push(ReplaceTok::Token(tok));
+                }
+            }
+        }
+        Ok(Replace(toks))
+    }
+
+    /// Parses an environment for a rule.
+    fn parse_environment(&mut self) -> Result<Environment, Error> {
+        unimplemented!();
+    }
+
     /// Parses a regular expression.
     fn parse_regex(&mut self) -> Result<Pattern, Error> {
         let mut terms = Vec::new();
@@ -301,7 +391,7 @@ where
             Some(Token::Dot) => Ok(Pattern::Any),
             Some(Token::Hash) => Ok(Pattern::WordBoundary),
             Some(Token::Dollar) => Ok(Pattern::SyllableBoundary),
-            Some(Token::OpenBrace) => self.parse_category(),
+            Some(Token::OpenBrace) => self.parse_category().map(Pattern::Category),
             Some(Token::OpenBracket) => self.parse_set(),
             Some(Token::OpenParen) => {
                 let value = self.parse_regex();
@@ -363,7 +453,7 @@ where
     /// Parses a category from the stream.
     ///
     /// This should be used _after_ the initial `{` has been popped.
-    fn parse_category(&mut self) -> Result<Pattern, Error> {
+    fn parse_category(&mut self) -> Result<Category, Error> {
         if let Some(&t) = self.peek() {
             if t.is_digit() {
                 // get the number
@@ -382,10 +472,10 @@ where
     }
 
     /// Finishes parsing a category, after the number (or lack thereof) has been matched.
-    fn finish_parse_category(&mut self, number: Option<u8>) -> Result<Pattern, Error> {
+    fn finish_parse_category(&mut self, number: Option<u8>) -> Result<Category, Error> {
         let name = self.parse_ident();
         match self.next() {
-            Some(Token::CloseBrace) => Ok(Pattern::Category(Category { name, number })),
+            Some(Token::CloseBrace) => Ok(Category { name, number }),
             Some(tok) => Err(Error::Token(self.index() - 1, tok)),
             None => Err(Error::EndOfInput),
         }
