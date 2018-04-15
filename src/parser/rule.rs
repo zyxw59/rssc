@@ -439,21 +439,7 @@ where
                 self.next();
                 match self.next() {
                     Some(Token::OpenParen) => {
-                        let mut exprs = Vec::new();
-                        while let Some(&tok) = self.peek() {
-                            self.skip_whitespace();
-                            if let Token::CloseParen = tok {
-                                self.next();
-                                break;
-                            } else {
-                                exprs.push(self.parse_environment()?);
-                            }
-                        }
-                        if exprs.len() == 1 {
-                            exprs.into_iter().next().ok_or_else(|| unreachable!())
-                        } else {
-                            Ok(Environment::And(exprs))
-                        }
+                        first_or_else(self.parse_environment_list()?, Environment::And)
                     }
                     Some(tok) => Err(Error::Token(self.index() - 1, tok)),
                     None => Err(Error::EndOfInput),
@@ -463,21 +449,7 @@ where
                 self.next();
                 match self.next() {
                     Some(Token::OpenParen) => {
-                        let mut exprs = Vec::new();
-                        while let Some(&tok) = self.peek() {
-                            self.skip_whitespace();
-                            if let Token::CloseParen = tok {
-                                self.next();
-                                break;
-                            } else {
-                                exprs.push(self.parse_environment()?);
-                            }
-                        }
-                        if exprs.len() == 1 {
-                            exprs.into_iter().next().ok_or_else(|| unreachable!())
-                        } else {
-                            Ok(Environment::Or(exprs))
-                        }
+                        first_or_else(self.parse_environment_list()?, Environment::Or)
                     }
                     Some(tok) => Err(Error::Token(self.index() - 1, tok)),
                     None => Err(Error::EndOfInput),
@@ -504,6 +476,25 @@ where
         }
     }
 
+    /// Parses a list of environments until a close paren (that isn't part of a regex).
+    ///
+    /// Assumes the open paren has already been popped. This pops the final close paren.
+    fn parse_environment_list(&mut self) -> Result<Vec<Environment>, Error> {
+        let mut exprs = Vec::new();
+        loop {
+            self.skip_whitespace();
+            match self.peek() {
+                Some(&Token::CloseParen) => {
+                    self.next();
+                    break;
+                }
+                Some(_) => exprs.push(self.parse_environment()?),
+                None => return Err(Error::EndOfInput),
+            };
+        }
+        Ok(exprs)
+    }
+
     /// Parses a regular expression.
     fn parse_regex(&mut self) -> Result<Pattern, Error> {
         let mut terms = Vec::new();
@@ -512,11 +503,7 @@ where
             self.next();
             terms.push(self.parse_term()?);
         }
-        if terms.len() == 1 {
-            terms.into_iter().next().ok_or_else(|| unreachable!())
-        } else {
-            Ok(Pattern::Alternate(terms))
-        }
+        first_or_else(terms, Pattern::Alternate)
     }
 
     /// Parses a term of a regular expression, consisting of a string of atoms, possibly with
@@ -545,11 +532,7 @@ where
                 }),
             }
         }
-        if elems.len() == 1 {
-            elems.into_iter().next().ok_or_else(|| unreachable!())
-        } else {
-            Ok(Pattern::Concat(elems))
-        }
+        first_or_else(elems, Pattern::Concat)
     }
 
     /// Parses a single atom of a regular expression.
@@ -688,6 +671,17 @@ where
             }
         }
         id
+    }
+}
+
+fn first_or_else<E, F, T>(vec: Vec<T>, or_else: F) -> Result<T, E>
+where
+    F: FnOnce(Vec<T>) -> T,
+{
+    if vec.len() == 1 {
+        vec.into_iter().next().ok_or_else(|| unreachable!())
+    } else {
+        Ok(or_else(vec))
     }
 }
 
