@@ -324,7 +324,73 @@ where
 
     /// Parses an environment for a rule.
     fn parse_environment(&mut self) -> Result<Environment, Error> {
-        unimplemented!();
+        self.skip_whitespace();
+        match self.peek() {
+            Some(&Token::And) => {
+                self.next();
+                match self.next() {
+                    Some(Token::OpenParen) => {
+                        let mut exprs = Vec::new();
+                        while let Some(&tok) = self.peek() {
+                            if let Token::CloseParen = tok {
+                                break;
+                            } else {
+                                self.next();
+                                exprs.push(self.parse_environment()?);
+                            }
+                        }
+                        if exprs.len() == 1 {
+                            exprs.into_iter().next().ok_or_else(|| unreachable!())
+                        } else {
+                            Ok(Environment::And(exprs))
+                        }
+                    }
+                    Some(tok) => Err(Error::Token(self.index() - 1, tok)),
+                    None => Err(Error::EndOfInput),
+                }
+            }
+            Some(&Token::Pipe) => {
+                self.next();
+                match self.next() {
+                    Some(Token::OpenParen) => {
+                        let mut exprs = Vec::new();
+                        while let Some(&tok) = self.peek() {
+                            if let Token::CloseParen = tok {
+                                break;
+                            } else {
+                                self.next();
+                                exprs.push(self.parse_environment()?);
+                            }
+                        }
+                        if exprs.len() == 1 {
+                            exprs.into_iter().next().ok_or_else(|| unreachable!())
+                        } else {
+                            Ok(Environment::Or(exprs))
+                        }
+                    }
+                    Some(tok) => Err(Error::Token(self.index() - 1, tok)),
+                    None => Err(Error::EndOfInput),
+                }
+            }
+            Some(&Token::Exclam) => {
+                self.next();
+                self.parse_environment().map(Box::new).map(Environment::Not)
+            }
+            Some(_) => {
+                let before = self.parse_regex()?;
+                self.skip_whitespace();
+                let after = match self.next() {
+                    Some(Token::Underscore) => {
+                        self.skip_whitespace();
+                        self.parse_regex()
+                    }
+                    Some(tok) => Err(Error::Token(self.index() - 1, tok)),
+                    None => Err(Error::EndOfInput),
+                }?;
+                Ok(Environment::Pattern(before, after))
+            }
+            None => Ok(Environment::Everywhere),
+        }
     }
 
     /// Parses a regular expression.
