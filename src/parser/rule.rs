@@ -328,6 +328,11 @@ impl<I> Parser<I>
 where
     I: Iterator<Item = Token>,
 {
+    /// Parses a line as a rule, returning an error if the line is not a valid rule.
+    pub fn parse(stream: I) -> Result<Rule, Error> {
+        Parser(stream.peekable(), 0).parse_rule()
+    }
+
     fn peek(&mut self) -> Option<&Token> {
         self.0.peek()
     }
