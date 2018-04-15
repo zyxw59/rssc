@@ -19,9 +19,11 @@ pub enum Search {
 }
 
 /// The replacement portion of a sound change rule.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Replace(pub Vec<ReplaceTok>);
 
 /// A replacement token.
+#[derive(Clone, Debug, PartialEq)]
 pub enum ReplaceTok {
     Token(Token),
     Category(Category),

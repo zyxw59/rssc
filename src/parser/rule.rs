@@ -213,6 +213,113 @@ mod tests {
         let result = parser.parse_regex();
         assert_eq!(result, Ok(Pattern::Literal(a)));
     }
+
+    #[test]
+    fn parse_replace() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let c = Token::try_from_u8(b'C').unwrap();
+        let input = vec![
+            a,
+            Token::OpenBrace,
+            Token::try_from_u8(b'1').unwrap(),
+            Token::Colon,
+            c,
+            Token::CloseBrace,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_replace();
+        assert_eq!(
+            result,
+            Ok(Replace(vec![
+                ReplaceTok::Token(a),
+                ReplaceTok::Category(Category {
+                    name: vec![c],
+                    number: Some(1),
+                }),
+            ]))
+        );
+    }
+
+    #[test]
+    fn simple_environment() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let input = vec![a, Token::Underscore, b];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_environment();
+        assert_eq!(
+            result,
+            Ok(Environment::Pattern(
+                Pattern::Literal(a),
+                Pattern::Literal(b)
+            ))
+        );
+    }
+
+    #[test]
+    fn environment_or() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let c = Token::try_from_u8(b'c').unwrap();
+        let d = Token::try_from_u8(b'd').unwrap();
+        let input = vec![
+            Token::Pipe,
+            Token::OpenParen,
+            a,
+            Token::Underscore,
+            b,
+            Token::Space,
+            c,
+            Token::Underscore,
+            d,
+            Token::CloseParen,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_environment();
+        assert_eq!(
+            result,
+            Ok(Environment::Or(vec![
+                Environment::Pattern(Pattern::Literal(a), Pattern::Literal(b)),
+                Environment::Pattern(Pattern::Literal(c), Pattern::Literal(d)),
+            ]))
+        );
+    }
+
+    #[test]
+    fn environment_nested() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let c = Token::try_from_u8(b'c').unwrap();
+        let d = Token::try_from_u8(b'd').unwrap();
+        let input = vec![
+            Token::Pipe,
+            Token::OpenParen,
+            Token::And,
+            Token::OpenParen,
+            a,
+            Token::Underscore,
+            Token::Space,
+            Token::Underscore,
+            b,
+            Token::CloseParen,
+            c,
+            Token::Underscore,
+            d,
+            Token::CloseParen,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_environment();
+        assert_eq!(
+            result,
+            Ok(Environment::Or(vec![
+                Environment::And(vec![
+                    Environment::Pattern(Pattern::Literal(a), Pattern::Concat(vec![])),
+                    Environment::Pattern(Pattern::Concat(vec![]), Pattern::Literal(b)),
+                ]),
+                Environment::Pattern(Pattern::Literal(c), Pattern::Literal(d)),
+            ]))
+        );
+    }
 }
 
 struct Parser<I: Iterator>(Peekable<I>, usize);
@@ -242,6 +349,8 @@ where
         while let Some(&tok) = self.peek() {
             if tok.is_whitespace() {
                 self.next();
+            } else {
+                break;
             }
         }
     }
@@ -332,10 +441,11 @@ where
                     Some(Token::OpenParen) => {
                         let mut exprs = Vec::new();
                         while let Some(&tok) = self.peek() {
+                            self.skip_whitespace();
                             if let Token::CloseParen = tok {
+                                self.next();
                                 break;
                             } else {
-                                self.next();
                                 exprs.push(self.parse_environment()?);
                             }
                         }
@@ -355,10 +465,11 @@ where
                     Some(Token::OpenParen) => {
                         let mut exprs = Vec::new();
                         while let Some(&tok) = self.peek() {
+                            self.skip_whitespace();
                             if let Token::CloseParen = tok {
+                                self.next();
                                 break;
                             } else {
-                                self.next();
                                 exprs.push(self.parse_environment()?);
                             }
                         }
