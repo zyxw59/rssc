@@ -4,6 +4,7 @@ use std::ops::Add;
 pub mod segment;
 
 pub use self::segment::{Segment, SegmentMap};
+use re;
 
 macro_rules! enum_const {
     ( $(#[$attr:meta])* $main:ident ($int:ty) { $($value:pat => $id:ident),* $(,)* } ) => {
@@ -166,5 +167,11 @@ impl Add<u16> for Token {
 impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Token({:#X})", self.0)
+    }
+}
+
+impl re::token::Token for Token {
+    fn is_word(&self) -> bool {
+        !self.is_whitespace()
     }
 }
