@@ -34,14 +34,13 @@ impl Category {
         // to hold a set of elements if they are all one segment
         let mut set = HashSet::with_capacity(n);
         // iterate over elements
-        for el in &elements {
+        for (i, el) in elements.iter().enumerate() {
             if let &Element::String(ref el) = el {
                 if can_use_set && el.len() == 1 {
                     set.insert(el[0]);
                 } else {
                     can_use_set = false;
                 }
-                let i = elements.len();
                 match indices.entry(el.clone()) {
                     Entry::Vacant(entry) => {
                         // this is the first instance of this element
