@@ -37,12 +37,12 @@ pub enum Instr<R> {
 
 impl<R: fmt::Display> fmt::Display for Instr<R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &Instr::Token(ref r) => write!(f, "Token({})", r),
-            &Instr::Split(x) => write!(f, "Split({:02X})", x),
-            &Instr::Jump(x) => write!(f, "Jump({:02X})", x),
-            &Instr::Save => write!(f, "Save"),
-            &Instr::Match => write!(f, "Match"),
+        match *self {
+            Instr::Token(ref r) => write!(f, "Token({})", r),
+            Instr::Split(x) => write!(f, "Split({:02X})", x),
+            Instr::Jump(x) => write!(f, "Jump({:02X})", x),
+            Instr::Save => write!(f, "Save"),
+            Instr::Match => write!(f, "Match"),
         }
     }
 }
@@ -238,13 +238,8 @@ impl<R: RegexExtension> Program<R> {
 
         // now iterate over remaining threads, to check for pending match instructions
         for th in &mut curr {
-            use self::Instr::*;
-            match self[th.pc] {
-                Match => {
-                    saves.push(th.saved);
-                }
-                // anything else is a failed match
-                _ => {}
+            if let Instr::Match = self[th.pc] {
+                saves.push(th.saved);
             }
         }
 

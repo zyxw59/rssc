@@ -229,13 +229,13 @@ impl<R: BufRead> Tokens<R> {
             self.input.read_line(&mut self.in_buffer)?;
             // perform canonical decomposition on the string
             let chars = self.in_buffer.chars().nfd().collect::<Vec<char>>();
-            if chars.len() == 0 {
+            if chars.is_empty() {
                 return Ok(());
             }
             // extract segment boundaries
             let saves = self.re
                 .exec(chars.iter())
-                .ok_or(Error::Tokenizing(self.line))?;
+                .ok_or_else(|| Error::Tokenizing(self.line))?;
             self.line += 1;
             for (start, end) in saves.iter().zip(saves[1..].iter()) {
                 // extract the sgement

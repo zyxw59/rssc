@@ -19,7 +19,7 @@ impl SegmentMap {
     /// Generates a mapping from a `Vec` of `Segment` values, where the index in the vector is the
     /// offset from `0x80` of the `Token` value (e.g. `Token(0x80)` will be found at index 0,
     /// `Token(0x81)` will be found at index 1, etc.).
-    pub fn clone_from_vec(vec: &Vec<Segment>) -> SegmentMap {
+    pub fn clone_from_vec(vec: &[Segment]) -> SegmentMap {
         let mut map = SegmentMap {
             vec: Vec::new(),
             max_token: Token(0x7F),
@@ -28,7 +28,7 @@ impl SegmentMap {
             map.pad(seg.len());
             map.vec[seg.len() - 1].insert(seg.clone(), Token::from_index(tok));
         }
-        if vec.len() > 0 {
+        if !vec.is_empty() {
             map.max_token = Token::from_index(vec.len() - 1);
         }
         map
@@ -41,7 +41,7 @@ impl SegmentMap {
     ///
     /// Panics if `key` is zero-length.
     pub fn get_or_insert(&mut self, key: Segment) -> Token {
-        if key.len() == 0 {
+        if key.is_empty() {
             panic!("Segment with zero length");
         }
         if key.len() == 1 && key[0] <= '\x7F' {
@@ -77,13 +77,13 @@ impl SegmentMap {
 
 /// A struct to iterate over the `Segment`s of a `SegmentMap` in order of decreasing length.
 pub struct SegmentMapIter<'a> {
-    vec: &'a Vec<HashMap<Segment, Token>>,
+    vec: &'a [HashMap<Segment, Token>],
     index: usize,
     keys: Option<Keys<'a, Segment, Token>>,
 }
 
 impl<'a> SegmentMapIter<'a> {
-    fn new(vec: &Vec<HashMap<Segment, Token>>) -> SegmentMapIter {
+    fn new(vec: &[HashMap<Segment, Token>]) -> SegmentMapIter {
         let index = vec.len();
         SegmentMapIter {
             vec,

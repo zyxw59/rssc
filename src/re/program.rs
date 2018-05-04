@@ -172,7 +172,7 @@ impl<T: Token> Program<T> {
         let mut i = 0;
 
         // iterate over tokens of input string
-        for ref tok_i in input {
+        for tok_i in input {
             // check if word boundary
             let new_word = tok_i.is_word();
             let word_boundary = new_word ^ word;
@@ -184,7 +184,7 @@ impl<T: Token> Program<T> {
                 match self[th.pc] {
                     Token(ref token) => {
                         // check if token matches
-                        if tok_i == token {
+                        if &tok_i == token {
                             // increment thread pc, passing along next input index, and saved
                             // positions
                             next.add_thread(th.pc + 1, i + 1, self, th.saved);
@@ -192,7 +192,7 @@ impl<T: Token> Program<T> {
                     }
                     Set(ref set) => {
                         // check if token in set
-                        if set.contains(tok_i) {
+                        if set.contains(&tok_i) {
                             // increment thread pc, passing along next input index, and saved
                             // positions
                             next.add_thread(th.pc + 1, i + 1, self, th.saved);
@@ -201,7 +201,7 @@ impl<T: Token> Program<T> {
                     Map(ref map) => {
                         // get the corresponding pc, or default to incrementing
                         next.add_thread(
-                            map.get(tok_i).cloned().unwrap_or(th.pc + 1),
+                            map.get(&tok_i).cloned().unwrap_or(th.pc + 1),
                             i + 1,
                             self,
                             th.saved,
@@ -255,13 +255,8 @@ impl<T: Token> Program<T> {
 
         // now iterate over remaining threads, to check for pending match instructions
         for th in &mut next {
-            use self::Instr::*;
-            match self[th.pc] {
-                Match => {
-                    saves.push(th.saved);
-                }
-                // anything else is a failed match
-                _ => {}
+            if let Instr::Match = self[th.pc] {
+                saves.push(th.saved);
             }
         }
 

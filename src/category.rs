@@ -35,7 +35,7 @@ impl Category {
         let mut set = HashSet::with_capacity(n);
         // iterate over elements
         for (i, el) in elements.iter().enumerate() {
-            if let &Element::String(ref el) = el {
+            if let Element::String(ref el) = *el {
                 if can_use_set && el.len() == 1 {
                     set.insert(el[0]);
                 } else {
@@ -68,7 +68,7 @@ impl Category {
                 sorted
                     .iter()
                     .filter_map(|x| elements[x.value].string_or_none())
-                    .map(Clone::clone)
+                    .cloned()
                     .map(Regex::Literal)
                     .collect(),
             )
@@ -93,9 +93,9 @@ pub enum Element {
 
 impl Element {
     fn string_or_none(&self) -> Option<&Vec<Token>> {
-        match self {
-            &Element::Zero => None,
-            &Element::String(ref v) => Some(v),
+        match *self {
+            Element::Zero => None,
+            Element::String(ref v) => Some(v),
         }
     }
 }
