@@ -5,9 +5,9 @@ authors = ["Emily Crandall Fleischman <emilycf@mit.edu>"]
 edition = "2018"
 
 [dependencies]
-lazy_static = "0.2.9"
+lazy_static = "1.4.0"
 radix_trie = "0.1"
 regex = "0.2"
 thiserror = "1.0.31"
-unicode_categories = "0.1"
 unicode-normalization = "0.1"
+unicode-general-category = "0.5.1"

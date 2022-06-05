@@ -1,10 +1,12 @@
 use std::convert;
 use std::fmt;
 
-use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::re::token::Token;
+use crate::{
+    re::token::Token,
+    unicode::{is_combining_double, is_modifier},
+};
 
 #[test]
 fn test_decompose() {
@@ -125,26 +127,4 @@ impl fmt::Display for Segment {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         self.symbol.fmt(f)
     }
-}
-
-/// Checks if a character is a base character or a modifier. A character is considered a modifier
-/// if it is in one of the following unicode classes:
-/// - Lm (Letter, Modifier)
-/// - Mc (Mark, Spacing Combining)
-/// - Me (Mark, Enclosing)
-/// - Mn (Mark, Non-Spacing)
-/// - Sk (Symbol, Modifier)
-/// Or, if it is a superscript or subscript
-fn is_modifier(c: char) -> bool {
-    // check against superscript 1, 2, and 3
-    c == '\u{b9}' || c == '\u{b2}' || c == '\u{b3}'
-        // check against superscripts and subscripts block
-        || ('\u{2070}'..='\u{209f}').contains(&c)
-        // otherwise, check if c is in the named classes
-        || c.is_letter_modifier() || c.is_mark() || c.is_symbol_modifier()
-}
-
-/// Checks if a character is a modifier combining two characters
-fn is_combining_double(c: char) -> bool {
-    ('\u{035c}'..='\u{0362}').contains(&c)
 }

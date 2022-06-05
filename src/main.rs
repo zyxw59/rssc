@@ -4,6 +4,7 @@ pub mod parser;
 pub mod re;
 pub mod segment;
 pub mod token;
+pub mod unicode;
 
 use std::io::{self, BufRead};
 

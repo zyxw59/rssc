@@ -24,6 +24,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9e5e58fa1a4c3b915a561a78a22ee0cac6ab97dca2504428bc1cb074375f8d5"
 
 [[package]]
+name = "lazy_static"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
+
+[[package]]
 name = "libc"
 version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -95,12 +101,12 @@ checksum = "ad890a5eef7953f55427c50575c680c42841653abd2b028b68cd223d157f62db"
 name = "rssc"
 version = "0.1.0"
 dependencies = [
- "lazy_static",
+ "lazy_static 1.4.0",
  "radix_trie",
  "regex",
  "thiserror",
+ "unicode-general-category",
  "unicode-normalization",
- "unicode_categories",
 ]
 
 [[package]]
@@ -140,9 +146,15 @@ version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1697c4b57aeeb7a536b647165a2825faddffb1d3bad386d507709bd51a90bb14"
 dependencies = [
- "lazy_static",
+ "lazy_static 0.2.9",
  "unreachable",
 ]
+
+[[package]]
+name = "unicode-general-category"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1218098468b8085b19a2824104c70d976491d247ce194bbd9dc77181150cdfd6"
 
 [[package]]
 name = "unicode-ident"
@@ -155,12 +167,6 @@ name = "unicode-normalization"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51ccda9ef9efa3f7ef5d91e8f9b83bbe6955f9bf86aec89d5cce2c874625920f"
-
-[[package]]
-name = "unicode_categories"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
 
 [[package]]
 name = "unreachable"
