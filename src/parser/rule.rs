@@ -2,8 +2,10 @@ use std::error;
 use std::fmt;
 use std::iter::Peekable;
 
-use ast::{Category, Environment, Ident, Pattern, Repeater, Replace, ReplaceTok, Rule, Search};
-use token::Token;
+use crate::{
+    ast::{Category, Environment, Ident, Pattern, Repeater, Replace, ReplaceTok, Rule, Search},
+    token::Token,
+};
 
 #[cfg(test)]
 mod tests {

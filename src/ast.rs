@@ -1,6 +1,6 @@
 use std::fmt;
 
-use token::Token;
+use crate::token::Token;
 
 /// A single sound change rule.
 pub struct Rule {

@@ -8,8 +8,7 @@ use std::iter::Peekable;
 use unicode_categories::UnicodeCategories;
 use unicode_normalization::UnicodeNormalization;
 
-use token::Token;
-use token::{Segment, SegmentMap};
+use crate::token::{Token, Segment, SegmentMap};
 
 use super::re::{Instr, Program, RegexExtension};
 

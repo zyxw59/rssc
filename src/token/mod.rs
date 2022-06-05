@@ -1,10 +1,11 @@
 use std::fmt;
 use std::ops::Add;
 
+use crate::re;
+
 pub mod segment;
 
 pub use self::segment::{Segment, SegmentMap};
-use re;
 
 macro_rules! enum_const {
     ( $(#[$attr:meta])* $main:ident ($int:ty) { $($value:pat => $id:ident),* $(,)* } ) => {

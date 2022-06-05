@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
-use re::token::Token;
-use re::program;
+use super::{token::Token, program};
 
 /// A regular expression
 #[derive(Debug)]

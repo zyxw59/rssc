@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use token::Token;
+use crate::token::Token;
 
 mod re;
 mod rule;

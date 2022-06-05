@@ -1,10 +1,8 @@
 use std::cmp;
-use std::collections::{BTreeSet, HashMap, HashSet};
 use std::collections::hash_map::Entry;
+use std::collections::{BTreeSet, HashMap, HashSet};
 
-use ast::Ident;
-use re::ast::Regex;
-use token::Token;
+use crate::{ast::Ident, re::ast::Regex, token::Token};
 
 /// A set of sounds to be used in patterns and replacements
 #[derive(Debug)]
