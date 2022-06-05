@@ -8,8 +8,8 @@ pub type Segment = Vec<char>;
 /// A mapping from `Segment` to `Token` values.
 #[derive(Clone, Debug)]
 pub struct SegmentMap {
-    /// A list of `HashMap`s, sorted by key length -- keys of length 1 will be found in map[0],
-    /// keys of length 2 will be found in map[1], and so on. Fite me.
+    /// A list of `HashMap`s, sorted by key length -- keys of length 1 will be found in map\[0],
+    /// keys of length 2 will be found in map\[1], and so on. Fite me.
     vec: Vec<HashMap<Segment, Token>>,
     /// The largest `Token` value assigned to a `Segment` in the map.
     max_token: Token,
