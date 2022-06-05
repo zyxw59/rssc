@@ -1,6 +1,5 @@
 //! A regex-based tokenizer which takes an input `char` stream and outputs a `Token` stream.
 
-use std::error;
 use std::fmt;
 use std::io::{self, BufRead};
 use std::iter::Peekable;
@@ -24,7 +23,7 @@ mod tests {
         let segments =
             SegmentMap::clone_from_vec(&vec![vec!['a', 'n'], vec!['n', 't'], vec!['t', 's']]);
         let prog = matcher(&segments);
-        println!("{}", prog);
+        println!("{prog}");
 
         let saves = prog.exec(line);
         assert_eq!(saves, Some(vec![0, 2, 3, 5, 6]));
@@ -36,7 +35,7 @@ mod tests {
         let line = line.chars().nfd();
         let segments = SegmentMap::clone_from_vec(&Vec::new());
         let prog = matcher(&segments);
-        println!("{}", prog);
+        println!("{prog}");
 
         let saves = prog.exec(line);
         assert_eq!(saves, Some(vec![0, 3, 4]));
@@ -48,7 +47,7 @@ mod tests {
         let line = line.chars().nfd();
         let segments = SegmentMap::clone_from_vec(&Vec::new());
         let prog = matcher(&segments);
-        println!("{}", prog);
+        println!("{prog}");
 
         let saves = prog.exec(line);
         assert_eq!(saves, Some(vec![0, 2, 3]));
@@ -60,7 +59,7 @@ mod tests {
         let line = line.chars().nfd();
         let segments = SegmentMap::clone_from_vec(&Vec::new());
         let prog = matcher(&segments);
-        println!("{}", prog);
+        println!("{prog}");
 
         let saves = prog.exec(line);
         assert_eq!(saves, Some(vec![0, 2]));
@@ -102,7 +101,7 @@ impl RegexExtension for TokenizerExtension {
 
 impl fmt::Display for TokenizerExtension {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        fmt::Debug::fmt(self, f)
     }
 }
 
@@ -296,34 +295,12 @@ impl<R: BufRead> Iterator for TokenLines<R> {
 }
 
 /// An error encountered during tokenizing.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// The specified line lacked a valid tokenization.
+    #[error("No valid tokenization of line {0}")]
     Tokenizing(usize),
     /// The specified IO error occurred.
-    IO(io::Error),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Tokenizing(line) => write!(f, "No valid tokenization of line {}", line),
-            Error::IO(ref err) => write!(f, "{}", err),
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            Error::Tokenizing(_) => None,
-            Error::IO(err) => Some(err),
-        }
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Error {
-        Error::IO(err)
-    }
+    #[error(transparent)]
+    IO(#[from] io::Error),
 }

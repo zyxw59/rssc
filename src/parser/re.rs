@@ -38,11 +38,11 @@ pub enum Instr<R> {
 impl<R: fmt::Display> fmt::Display for Instr<R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Instr::Token(ref r) => write!(f, "Token({})", r),
-            Instr::Split(x) => write!(f, "Split({:02X})", x),
-            Instr::Jump(x) => write!(f, "Jump({:02X})", x),
-            Instr::Save => write!(f, "Save"),
-            Instr::Match => write!(f, "Match"),
+            Instr::Token(ref r) => write!(f, "Token({r})"),
+            Instr::Split(x) => write!(f, "Split({x:02X})"),
+            Instr::Jump(x) => write!(f, "Jump({x:02X})"),
+            Instr::Save => f.write_str("Save"),
+            Instr::Match => f.write_str("Match"),
         }
     }
 }
@@ -259,7 +259,7 @@ impl<R> Index<InstrPtr> for Program<R> {
 impl<R: fmt::Display> fmt::Display for Program<R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, instr) in self.prog.iter().enumerate() {
-            writeln!(f, "{:02X}: {}", i, instr)?;
+            writeln!(f, "{i:02X}: {instr}")?;
         }
         Ok(())
     }

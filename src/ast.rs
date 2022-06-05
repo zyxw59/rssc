@@ -63,7 +63,7 @@ pub enum Pattern {
     Category(Category),
     /// Matches a repeating pattern
     Repeat(Box<Pattern>, Repeater),
-    /// Matches a concatenation of two patterns
+    /// Matches a concatenation of multiple patterns
     Concat(Vec<Pattern>),
     /// Matches one of multiple patterns
     Alternate(Vec<Pattern>),
@@ -72,37 +72,35 @@ pub enum Pattern {
 impl fmt::Display for Pattern {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Pattern::*;
-        match *self {
-            Literal(tok) => write!(f, "{:?}", tok),
-            Set(ref v) => write!(
-                f,
-                "[{}]",
-                v.iter()
-                    .map(|x| format!("{:?}", x))
-                    .collect::<Vec<_>>()
-                    .join("")
-            ),
-            Any => write!(f, "."),
-            WordBoundary => write!(f, "#"),
-            SyllableBoundary => write!(f, "$"),
-            Category(ref cat) => write!(f, "{:?}", cat),
-            Repeat(ref pat, ref rep) => write!(f, "{}{}", pat, rep),
-            Concat(ref v) => write!(
-                f,
-                "{}",
-                v.iter()
-                    .map(|x| format!("{}", x))
-                    .collect::<Vec<_>>()
-                    .join("")
-            ),
-            Alternate(ref v) => write!(
-                f,
-                "{}",
-                v.iter()
-                    .map(|x| format!("{}", x))
-                    .collect::<Vec<_>>()
-                    .join("|")
-            ),
+        match self {
+            Literal(tok) => write!(f, "{tok:?}"),
+            Set(v) => {
+                f.write_str("[")?;
+                for tok in v {
+                    fmt::Debug::fmt(tok, f)?;
+                }
+                f.write_str("]")
+            }
+            Any => f.write_str("."),
+            WordBoundary => f.write_str("#"),
+            SyllableBoundary => f.write_str("$"),
+            Category(cat) => fmt::Debug::fmt(cat, f),
+            Repeat(pat, rep) => write!(f, "{pat}{rep}"),
+            Concat(v) => {
+                for pat in v {
+                    fmt::Display::fmt(pat, f)?;
+                }
+                Ok(())
+            }
+            Alternate(v) => {
+                if let Some((first, rest)) = v.split_first() {
+                    fmt::Display::fmt(first, f)?;
+                    for pat in rest {
+                        write!(f, "|{pat}")?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 }

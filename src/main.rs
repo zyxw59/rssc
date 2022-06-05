@@ -1,7 +1,3 @@
-extern crate radix_trie;
-extern crate unicode_categories;
-extern crate unicode_normalization;
-
 pub mod ast;
 pub mod category;
 pub mod parser;
@@ -23,9 +19,9 @@ fn main() {
     /*
     let tokens = token::Tokens::new(stdin.lock(), segments);
     for t in tokens {
-        print!("{:?} ", t);
+        print!("{t:?} ");
         if t == token::Token::from_u8(b'\n') {
-            println!("");
+            println!();
         }
     }
     */
@@ -37,7 +33,7 @@ fn main() {
                 println!("{:?}", tokens.collect::<Vec<_>>());
             }
             Err(err) => {
-                println!("Error: {}", err);
+                println!("Error: {err}");
                 break;
             }
         }

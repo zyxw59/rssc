@@ -1,5 +1,3 @@
-use std::error;
-use std::fmt;
 use std::iter::Peekable;
 
 use crate::{
@@ -692,29 +690,12 @@ where
 }
 
 /// An error encountered during parsing.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, thiserror::Error)]
 pub enum Error {
     /// An unexpected token, and the index it occurred at.
+    #[error("Unexpected token `{1:?}` at position {0}")]
     Token(usize, Token),
     /// Unexpected end of input.
+    #[error("Unexpected end of input")]
     EndOfInput,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::Token(idx, tok) => write!(f, "Unexpected token `{:?}` at position {}", tok, idx),
-            Error::EndOfInput => write!(f, "Unexpected end of input"),
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        use self::Error::*;
-        match *self {
-            Token(_, _) => "unexpected token",
-            EndOfInput => "unexpected end of input",
-        }
-    }
 }
