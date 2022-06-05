@@ -8,28 +8,36 @@ pub type Segment = Vec<char>;
 /// A mapping from `Segment` to `Token` values.
 #[derive(Clone, Debug)]
 pub struct SegmentMap {
-    /// A list of `HashMap`s, sorted by key length -- keys of length 1 will be found in map\[0],
-    /// keys of length 2 will be found in map\[1], and so on. Fite me.
-    vec: Vec<HashMap<Segment, Token>>,
+    /// A list of `HashMap`s, sorted by key length -- keys of length 1 will be found in `map[0]`,
+    /// keys of length 2 will be found in `maps[1]`, and so on.
+    maps: Vec<HashMap<Segment, Token>>,
     /// The largest `Token` value assigned to a `Segment` in the map.
     max_token: Token,
 }
 
 impl SegmentMap {
+    /// Creates a new, empty `SegmentMap`
+    pub fn new() -> SegmentMap {
+        SegmentMap {
+            maps: Vec::new(),
+            max_token: Token(0x7F),
+        }
+    }
+
     /// Generates a mapping from a `Vec` of `Segment` values, where the index in the vector is the
     /// offset from `0x80` of the `Token` value (e.g. `Token(0x80)` will be found at index 0,
     /// `Token(0x81)` will be found at index 1, etc.).
-    pub fn clone_from_vec(vec: &[Segment]) -> SegmentMap {
+    pub fn from_list(list: &[Segment]) -> SegmentMap {
         let mut map = SegmentMap {
-            vec: Vec::new(),
+            maps: Vec::new(),
             max_token: Token(0x7F),
         };
-        for (tok, seg) in vec.iter().enumerate() {
+        for (tok, seg) in list.iter().enumerate() {
             map.pad(seg.len());
-            map.vec[seg.len() - 1].insert(seg.clone(), Token::from_index(tok));
+            map.maps[seg.len() - 1].insert(seg.clone(), Token::from_index(tok));
         }
-        if !vec.is_empty() {
-            map.max_token = Token::from_index(vec.len() - 1);
+        if !list.is_empty() {
+            map.max_token = Token::from_index(list.len() - 1);
         }
         map
     }
@@ -53,7 +61,7 @@ impl SegmentMap {
         }
         .unwrap_or_else(|| {
             self.pad(key.len());
-            let entry = self.vec[key.len() - 1].entry(key);
+            let entry = self.maps[key.len() - 1].entry(key);
             let max_token = self.max_token + 1;
             let token = *entry.or_insert(max_token);
             if token > self.max_token {
@@ -65,32 +73,32 @@ impl SegmentMap {
 
     /// Returns an iterator over the `Segment`s in order of decreasing length.
     pub fn iter(&self) -> SegmentMapIter {
-        SegmentMapIter::new(&self.vec)
+        SegmentMapIter::new(&self.maps)
     }
 
     /// Pads the internal vector with empty `HashMap`s to a given length.
     fn pad(&mut self, len: usize) {
-        while self.vec.len() < len {
-            self.vec.push(HashMap::new());
+        if len > self.maps.len() {
+            self.maps.resize_with(len, HashMap::new)
         }
+    }
+}
+
+impl Default for SegmentMap {
+    fn default() -> Self {
+        SegmentMap::new()
     }
 }
 
 /// A struct to iterate over the `Segment`s of a `SegmentMap` in order of decreasing length.
 pub struct SegmentMapIter<'a> {
-    vec: &'a [HashMap<Segment, Token>],
-    index: usize,
+    maps: &'a [HashMap<Segment, Token>],
     keys: Option<Keys<'a, Segment, Token>>,
 }
 
 impl<'a> SegmentMapIter<'a> {
-    fn new(vec: &[HashMap<Segment, Token>]) -> SegmentMapIter {
-        let index = vec.len();
-        SegmentMapIter {
-            vec,
-            index,
-            keys: None,
-        }
+    fn new(maps: &[HashMap<Segment, Token>]) -> SegmentMapIter {
+        SegmentMapIter { maps, keys: None }
     }
 }
 
@@ -98,14 +106,16 @@ impl<'a> Iterator for SegmentMapIter<'a> {
     type Item = &'a Segment;
 
     fn next(&mut self) -> Option<&'a Segment> {
-        if self.keys.is_none() {
-            self.keys = if self.index > 0 {
-                self.index -= 1;
-                self.vec.get(self.index).map(|m| m.keys())
+        loop {
+            if let Some(next) = self.keys.as_mut().and_then(Keys::next) {
+                return Some(next);
+            }
+            if let Some((last, rest)) = self.maps.split_last() {
+                self.keys = Some(last.keys());
+                self.maps = rest;
             } else {
-                None
-            };
+                return None;
+            }
         }
-        self.keys.as_mut().and_then(|m| m.next())
     }
 }

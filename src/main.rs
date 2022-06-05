@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod ast;
 pub mod category;
 pub mod parser;
@@ -16,7 +18,7 @@ use std::io::{self, BufRead};
 
 fn main() {
     let stdin = io::stdin();
-    let segments = token::segment::SegmentMap::clone_from_vec(&Vec::new());
+    let mut segments = token::segment::SegmentMap::new();
     /*
     let tokens = token::Tokens::new(stdin.lock(), segments);
     for t in tokens {
@@ -30,7 +32,7 @@ fn main() {
         match line {
             Ok(line) => {
                 let line = line + "\n";
-                let tokens = parser::tokenizer::Tokens::new(line.as_ref(), segments.clone());
+                let tokens = parser::tokenizer::Tokens::new(line.as_ref(), &mut segments);
                 println!("{:?}", tokens.collect::<Vec<_>>());
             }
             Err(err) => {
