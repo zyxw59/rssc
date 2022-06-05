@@ -119,14 +119,14 @@ fn is_modifier(c: char) -> bool {
     // check against superscript 1, 2, and 3
     c == '\u{b9}' || c == '\u{b2}' || c == '\u{b3}'
         // check against superscripts and subscripts block
-        || ('\u{2070}' <= c && c <= '\u{209f}')
+        || ('\u{2070}'..='\u{209f}').contains(&c)
         // otherwise, check if c is in the named classes
         || c.is_letter_modifier() || c.is_mark() || c.is_symbol_modifier()
 }
 
 /// Checks if a character is a modifier combining two characters
 fn is_combining_double(c: char) -> bool {
-    '\u{035c}' <= c && c <= '\u{0362}'
+    ('\u{035c}'..='\u{0362}').contains(&c)
 }
 
 /// Construct a regex program to split a line into segments.
@@ -233,9 +233,10 @@ impl<R: BufRead> Tokens<R> {
                 return Ok(());
             }
             // extract segment boundaries
-            let saves = self.re
+            let saves = self
+                .re
                 .exec(chars.iter())
-                .ok_or_else(|| Error::Tokenizing(self.line))?;
+                .ok_or(Error::Tokenizing(self.line))?;
             self.line += 1;
             for (start, end) in saves.iter().zip(saves[1..].iter()) {
                 // extract the sgement
@@ -288,10 +289,7 @@ impl<R: BufRead> Iterator for TokenLines<R> {
             self.0
                 // `by_ref()` is needed because `.take_while()` consumes `self`.
                 .by_ref()
-                .take_while(|t| match *t {
-                    Ok(Token::Newline) => false,
-                    _ => true,
-                })
+                .take_while(|t| !matches!(t, Ok(Token::Newline)))
                 // this `.collect()` collects into `Result<Vec<Token>, Error>`
                 .collect()
         })
@@ -317,17 +315,10 @@ impl fmt::Display for Error {
 }
 
 impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::Tokenizing(_) => "No valid tokenization",
-            Error::IO(ref err) => err.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
             Error::Tokenizing(_) => None,
-            Error::IO(ref err) => Some(err),
+            Error::IO(err) => Some(err),
         }
     }
 }

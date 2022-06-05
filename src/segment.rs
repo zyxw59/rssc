@@ -60,7 +60,7 @@ impl Segment {
         // iterate using `while let` instead of `for` so that we can skip within the iterator
         while let Some(c) = iter.next() {
             // if the buffer is empty, initialize it
-            if buf.symbol == "" {
+            if buf.symbol.is_empty() {
                 buf = Segment::from(c);
                 continue;
             }
@@ -139,12 +139,12 @@ fn is_modifier(c: char) -> bool {
     // check against superscript 1, 2, and 3
     c == '\u{b9}' || c == '\u{b2}' || c == '\u{b3}'
         // check against superscripts and subscripts block
-        || ('\u{2070}' <= c && c <= '\u{209f}')
+        || ('\u{2070}'..='\u{209f}').contains(&c)
         // otherwise, check if c is in the named classes
         || c.is_letter_modifier() || c.is_mark() || c.is_symbol_modifier()
 }
 
 /// Checks if a character is a modifier combining two characters
 fn is_combining_double(c: char) -> bool {
-    '\u{035c}' <= c && c <= '\u{0362}'
+    ('\u{035c}'..='\u{0362}').contains(&c)
 }

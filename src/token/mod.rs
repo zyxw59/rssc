@@ -45,11 +45,11 @@ enum_const! {
     ///   - Regex control characters (`.*+?()[]|`)
     ///   - Characters with special meaning in patterns (`#$0{}`)
     ///   - Characters which delimit the parser (`=:>_/!|&\n\t `)
-    ///   are mapped to the range `0x00 ... 0x1F`.
+    ///   are mapped to the range `0x00 ..= 0x1F`.
     /// - Printable ASCII characters (and backslash-escaped control characters) are mapped to their
     ///   ASCII values.
     /// - All other tokens, including unicode characters, sequences involving combining diacritics, and
-    ///   user-defined tokens, are mapped to the range `0x80 ... u16::MAX`
+    ///   user-defined tokens, are mapped to the range `0x80 ..= u16::MAX`
     #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
     Token(u16) {
         b'.' => Dot,
@@ -93,16 +93,14 @@ impl Token {
     }
 
     /// Attempts to create a `Token` from the given byte. If it is a control character, this
-    /// returns the corresponding value in the range `0x00 ... 0x1F`. Otherwise, if the byte is in
-    /// the range `0x20 ... 0x7F`, this returns the numeric value of the byte. If the byte is
+    /// returns the corresponding value in the range `0x00 ..= 0x1F`. Otherwise, if the byte is in
+    /// the range `0x20 ..= 0x7F`, this returns the numeric value of the byte. If the byte is
     /// outside of that range, then it returns `None`.
     pub fn try_from_u8(c: u8) -> Option<Token> {
-        Token::try_enum(c).or_else(|| {
-            if c >= 0x20 && c <= 0x7F {
-                Some(Token(c as u16))
-            } else {
-                None
-            }
+        Token::try_enum(c).or(if (0x20..=0x7f).contains(&c) {
+            Some(Token(c as u16))
+        } else {
+            None
         })
     }
 
@@ -113,11 +111,13 @@ impl Token {
     pub fn try_from_u8_escaped(c: u8) -> Option<Token> {
         match c {
             b'\n' => Some(Token::Space),
-            _ => if Token::is_enumerated(c) {
-                Some(Token(c as u16))
-            } else {
-                None
-            },
+            _ => {
+                if Token::is_enumerated(c) {
+                    Some(Token(c as u16))
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -132,25 +132,19 @@ impl Token {
 
     /// Returns whether the token is `' '`, `'\n'`, or `'\t'`.
     pub fn is_whitespace(self) -> bool {
-        match self {
-            Token::Newline | Token::Tab | Token::Space => true,
-            _ => false,
-        }
+        matches!(self, Token::Newline | Token::Tab | Token::Space)
     }
 
     /// Returns whether the token is a digit.
     pub fn is_digit(self) -> bool {
-        match self {
-            Token::Zero | Token(0x30...0x39) => true,
-            _ => false,
-        }
+        matches!(self, Token::Zero | Token(0x30..=0x39))
     }
 
     /// Returns the value of the token as a decimal digit, or `None` if it is not a digit.
     pub fn digit_value(self) -> Option<u8> {
         match self {
             Token::Zero => Some(0),
-            Token(x @ 0x30...0x39) => Some(x as u8 - 0x30),
+            Token(x @ 0x30..=0x39) => Some(x as u8 - 0x30),
             _ => None,
         }
     }

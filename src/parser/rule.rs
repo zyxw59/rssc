@@ -1,6 +1,6 @@
-use std::iter::Peekable;
 use std::error;
 use std::fmt;
+use std::iter::Peekable;
 
 use ast::{Category, Environment, Ident, Pattern, Repeater, Replace, ReplaceTok, Rule, Search};
 use token::Token;
@@ -502,8 +502,7 @@ where
 
     /// Parses a regular expression.
     fn parse_regex(&mut self) -> Result<Pattern, Error> {
-        let mut terms = Vec::new();
-        terms.push(self.parse_term()?);
+        let mut terms = vec![self.parse_term()?];
         while let Some(&Token::Pipe) = self.peek() {
             self.next();
             terms.push(self.parse_term()?);
