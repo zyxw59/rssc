@@ -83,35 +83,39 @@ impl ThreadList {
     ) {
         // don't check if there's already a thread with this `pc` on the list, because we want to
         // keep alternate paths alive, in case they produce different submatch values.
-        use self::Instr::*;
         match prog[pc] {
-            Split(split) => {
+            Instr::Split(split) => {
                 // call `add_thread` recursively
                 // branch with no jump is higher priority
                 // clone the `saved` vector so we can use it again in the second branch
                 self.add_thread(pc + 1, in_idx, prog, saved.clone());
                 self.add_thread(split, in_idx, prog, saved);
             }
-            JSplit(split) => {
+            Instr::JSplit(split) => {
                 // call `add_thread` recursively
                 // branch with jump is higher priority
                 // clone the `saved` vector so we can use it again in the second branch
                 self.add_thread(split, in_idx, prog, saved.clone());
                 self.add_thread(pc + 1, in_idx, prog, saved);
             }
-            Jump(jump) => {
+            Instr::Jump(jump) => {
                 // call `add_thread` recursively
                 // jump to specified pc
                 self.add_thread(jump, in_idx, prog, saved);
             }
-            Save(idx) => {
+            Instr::Save(idx) => {
                 // save index
                 saved[idx] = Some(in_idx);
                 // and recursively add next instruction
                 self.add_thread(pc + 1, in_idx, prog, saved);
             }
-            Reject => {} // do nothing, this thread is dead
-            Token(_) | Map(_) | Set(_) | Any | WordBoundary | Match => {
+            Instr::Reject => {} // do nothing, this thread is dead
+            Instr::Token(_)
+            | Instr::Map(_)
+            | Instr::Set(_)
+            | Instr::Any
+            | Instr::WordBoundary
+            | Instr::Match => {
                 // push a new thread with the given pc
                 self.threads.push(Thread::new(pc, saved));
             }
@@ -180,9 +184,8 @@ impl<T: Token> Program<T> {
             // iterate over active threads, draining the list so we can reuse it without
             // reallocating
             for th in &mut curr {
-                use self::Instr::*;
-                match self[th.pc] {
-                    Token(ref token) => {
+                match &self[th.pc] {
+                    Instr::Token(token) => {
                         // check if token matches
                         if &tok_i == token {
                             // increment thread pc, passing along next input index, and saved
@@ -190,7 +193,7 @@ impl<T: Token> Program<T> {
                             next.add_thread(th.pc + 1, i + 1, self, th.saved);
                         }
                     }
-                    Set(ref set) => {
+                    Instr::Set(set) => {
                         // check if token in set
                         if set.contains(&tok_i) {
                             // increment thread pc, passing along next input index, and saved
@@ -198,7 +201,7 @@ impl<T: Token> Program<T> {
                             next.add_thread(th.pc + 1, i + 1, self, th.saved);
                         }
                     }
-                    Map(ref map) => {
+                    Instr::Map(map) => {
                         // get the corresponding pc, or default to incrementing
                         next.add_thread(
                             map.get(&tok_i).cloned().unwrap_or(th.pc + 1),
@@ -207,23 +210,27 @@ impl<T: Token> Program<T> {
                             th.saved,
                         );
                     }
-                    Any => {
+                    Instr::Any => {
                         // always matches
                         next.add_thread(th.pc + 1, i + 1, self, th.saved);
                     }
-                    WordBoundary => {
+                    Instr::WordBoundary => {
                         // check if word boundary
                         if word_boundary {
                             next.add_thread(th.pc + 1, i, self, th.saved);
                         }
                     }
-                    Match => {
+                    Instr::Match => {
                         // add the saved locations to the final list
                         saves.push(th.saved);
                     }
                     // These instructions are handled in add_thread, so the current thread should
                     // never point to one of them
-                    Split(_) | JSplit(_) | Jump(_) | Save(_) | Reject => {
+                    Instr::Split(_)
+                    | Instr::JSplit(_)
+                    | Instr::Jump(_)
+                    | Instr::Save(_)
+                    | Instr::Reject => {
                         unreachable!();
                     }
                 }
@@ -237,15 +244,14 @@ impl<T: Token> Program<T> {
 
         // now iterate over remaining threads, to check for pending word boundary instructions
         for th in &mut curr {
-            use self::Instr::*;
             match self[th.pc] {
-                WordBoundary => {
+                Instr::WordBoundary => {
                     // check if last token was a word token
                     if word {
                         next.add_thread(th.pc + 1, i, self, th.saved);
                     }
                 }
-                Match => {
+                Instr::Match => {
                     saves.push(th.saved);
                 }
                 // anything else is a failed match

@@ -71,28 +71,27 @@ pub enum Pattern {
 
 impl fmt::Display for Pattern {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Pattern::*;
         match self {
-            Literal(tok) => write!(f, "{tok:?}"),
-            Set(v) => {
+            Pattern::Literal(tok) => write!(f, "{tok:?}"),
+            Pattern::Set(v) => {
                 f.write_str("[")?;
                 for tok in v {
                     fmt::Debug::fmt(tok, f)?;
                 }
                 f.write_str("]")
             }
-            Any => f.write_str("."),
-            WordBoundary => f.write_str("#"),
-            SyllableBoundary => f.write_str("$"),
-            Category(cat) => fmt::Debug::fmt(cat, f),
-            Repeat(pat, rep) => write!(f, "{pat}{rep}"),
-            Concat(v) => {
+            Pattern::Any => f.write_str("."),
+            Pattern::WordBoundary => f.write_str("#"),
+            Pattern::SyllableBoundary => f.write_str("$"),
+            Pattern::Category(cat) => fmt::Debug::fmt(cat, f),
+            Pattern::Repeat(pat, rep) => write!(f, "{pat}{rep}"),
+            Pattern::Concat(v) => {
                 for pat in v {
                     fmt::Display::fmt(pat, f)?;
                 }
                 Ok(())
             }
-            Alternate(v) => {
+            Pattern::Alternate(v) => {
                 if let Some((first, rest)) = v.split_first() {
                     fmt::Display::fmt(first, f)?;
                     for pat in rest {
@@ -115,11 +114,10 @@ pub enum Repeater {
 
 impl fmt::Display for Repeater {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Repeater::*;
-        match *self {
-            ZeroOrOne(greedy) => write!(f, "?{}", if greedy { "" } else { "?" }),
-            ZeroOrMore(greedy) => write!(f, "*{}", if greedy { "" } else { "?" }),
-            OneOrMore(greedy) => write!(f, "+{}", if greedy { "" } else { "?" }),
+        match self {
+            Repeater::ZeroOrOne(greedy) => write!(f, "?{}", if *greedy { "" } else { "?" }),
+            Repeater::ZeroOrMore(greedy) => write!(f, "*{}", if *greedy { "" } else { "?" }),
+            Repeater::OneOrMore(greedy) => write!(f, "+{}", if *greedy { "" } else { "?" }),
         }
     }
 }

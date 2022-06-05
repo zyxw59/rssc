@@ -37,8 +37,8 @@ pub enum Instr<R> {
 
 impl<R: fmt::Display> fmt::Display for Instr<R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Instr::Token(ref r) => write!(f, "Token({r})"),
+        match self {
+            Instr::Token(r) => write!(f, "Token({r})"),
             Instr::Split(x) => write!(f, "Split({x:02X})"),
             Instr::Jump(x) => write!(f, "Jump({x:02X})"),
             Instr::Save => f.write_str("Save"),
@@ -133,27 +133,26 @@ impl ThreadList {
             }
         }
         last[pc] = OptionUsize::some(in_idx);
-        use self::Instr::*;
         match prog[pc] {
-            Split(split) => {
+            Instr::Split(split) => {
                 // call `add_thread` recursively
                 // branch with no jump is higher priority
                 // clone the `saved` vector so we can use it again in the second branch
                 self.add_thread(pc + 1, in_idx, prog, saved.clone(), last);
                 self.add_thread(split, in_idx, prog, saved, last);
             }
-            Jump(jump) => {
+            Instr::Jump(jump) => {
                 // call `add_thread` recursively
                 // jump to specified pc
                 self.add_thread(jump, in_idx, prog, saved, last);
             }
-            Save => {
+            Instr::Save => {
                 // save index
                 saved.push(in_idx);
                 // and recursively add next instruction
                 self.add_thread(pc + 1, in_idx, prog, saved, last);
             }
-            Token(_) | Match => {
+            Instr::Token(_) | Instr::Match => {
                 // push a new thread with the given pc
                 self.threads.push(Thread::new(pc, saved));
             }
@@ -205,14 +204,13 @@ impl<R: RegexExtension> Program<R> {
         curr.add_thread(0, 0, self, SaveList::new(), &mut last);
 
         // iterate over tokens of input string
-        for (i, ref ch_i) in input.into_iter().enumerate() {
+        for (i, ch_i) in input.into_iter().enumerate() {
             let ch_i = *ch_i.borrow();
             // iterate over active threads, draining the list so we can reuse it without
             // reallocating
             for th in &mut curr {
-                use self::Instr::*;
-                match self[th.pc] {
-                    Token(ref matcher) => {
+                match &self[th.pc] {
+                    Instr::Token(matcher) => {
                         // check if char matches
                         if matcher.is_match(ch_i) {
                             // increment thread pc, passing along next input index, and saved
@@ -220,13 +218,13 @@ impl<R: RegexExtension> Program<R> {
                             next.add_thread(th.pc + 1, i + 1, self, th.saved, &mut last);
                         }
                     }
-                    Match => {
+                    Instr::Match => {
                         // add the saved locations to the final list
                         saves.push(th.saved);
                     }
                     // These instructions are handled in add_thread, so the current thread should
                     // never point to one of them
-                    Split(_) | Jump(_) | Save => {
+                    Instr::Split(_) | Instr::Jump(_) | Instr::Save => {
                         unreachable!();
                     }
                 }

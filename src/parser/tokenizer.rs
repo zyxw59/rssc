@@ -8,7 +8,7 @@ use unicode_normalization::UnicodeNormalization;
 
 use crate::{
     token::{Segment, SegmentMap, Token},
-    unicode::{is_modifier, is_combining_double},
+    unicode::{is_combining_double, is_modifier},
 };
 
 use super::re::{Instr, Program, RegexExtension};
@@ -89,14 +89,13 @@ impl RegexExtension for TokenizerExtension {
     type Token = char;
 
     fn is_match(&self, tok: char) -> bool {
-        use self::TokenizerExtension::*;
-        match *self {
-            Char(ch) => tok == ch,
-            Any => true,
-            ControlChar => Token::is_control_char(tok),
-            BaseChar => !is_modifier(tok),
-            CombiningChar => is_modifier(tok) && !is_combining_double(tok),
-            CombiningDouble => is_combining_double(tok),
+        match self {
+            TokenizerExtension::Char(ch) => tok == *ch,
+            TokenizerExtension::Any => true,
+            TokenizerExtension::ControlChar => Token::is_control_char(tok),
+            TokenizerExtension::BaseChar => !is_modifier(tok),
+            TokenizerExtension::CombiningChar => is_modifier(tok) && !is_combining_double(tok),
+            TokenizerExtension::CombiningDouble => is_combining_double(tok),
         }
     }
 }
@@ -110,33 +109,30 @@ impl fmt::Display for TokenizerExtension {
 /// Construct a regex program to split a line into segments.
 pub fn matcher(segments: &SegmentMap) -> Program<TokenizerExtension> {
     // the instructions
-    let mut prog = Vec::new();
-
-    use self::TokenizerExtension::*;
-
     // save instruction, to be performed at the end of each token
-    prog.push(Instr::Save);
+    let mut prog = vec![Instr::Save];
+
     // match a control character
     let mut split = prog.len();
     prog.push(Instr::Split(0));
-    prog.push(Instr::Token(ControlChar));
+    prog.push(Instr::Token(TokenizerExtension::ControlChar));
     prog.push(Instr::Jump(0));
     // match a backslash-escaped character, which is considered as a single base character
     prog[split] = Instr::Split(prog.len());
     split = prog.len();
     prog.push(Instr::Split(0));
-    prog.push(Instr::Token(Char('\\')));
+    prog.push(Instr::Token(TokenizerExtension::Char('\\')));
     prog.push(Instr::Split(split + 5));
-    prog.push(Instr::Token(Char('\n')));
+    prog.push(Instr::Token(TokenizerExtension::Char('\n')));
     prog.push(Instr::Jump(0));
-    prog.push(Instr::Token(Any));
+    prog.push(Instr::Token(TokenizerExtension::Any));
     let escape_jump = prog.len();
     prog.push(Instr::Jump(0));
     // match a newline, and therefore the end of the string
     prog[split] = Instr::Split(prog.len());
     split = prog.len();
     prog.push(Instr::Split(0));
-    prog.push(Instr::Token(Char('\n')));
+    prog.push(Instr::Token(TokenizerExtension::Char('\n')));
     prog[escape_jump - 2] = Instr::Jump(prog.len());
     prog.push(Instr::Save);
     prog.push(Instr::Match);
@@ -146,7 +142,7 @@ pub fn matcher(segments: &SegmentMap) -> Program<TokenizerExtension> {
         split = prog.len();
         prog.push(Instr::Split(0));
         for c in seg {
-            prog.push(Instr::Token(Char(*c)));
+            prog.push(Instr::Token(TokenizerExtension::Char(*c)));
         }
         prog.push(Instr::Jump(0));
     }
@@ -154,12 +150,12 @@ pub fn matcher(segments: &SegmentMap) -> Program<TokenizerExtension> {
     let base = prog.len();
     prog[escape_jump] = Instr::Jump(base + 1);
     prog[split] = Instr::Split(base);
-    prog.push(Instr::Token(BaseChar));
+    prog.push(Instr::Token(TokenizerExtension::BaseChar));
     prog.push(Instr::Split(base + 4));
-    prog.push(Instr::Token(CombiningChar));
+    prog.push(Instr::Token(TokenizerExtension::CombiningChar));
     prog.push(Instr::Jump(base + 1));
     prog.push(Instr::Split(0));
-    prog.push(Instr::Token(CombiningDouble));
+    prog.push(Instr::Token(TokenizerExtension::CombiningDouble));
     prog.push(Instr::Jump(base));
 
     Program::new(prog, 0)
@@ -244,13 +240,10 @@ impl<R: BufRead> Iterator for Tokens<R> {
     fn next(&mut self) -> Option<Result<Token, Error>> {
         match self.fill_buffer() {
             Err(e) => Some(Err(e)),
-            Ok(()) => match self.out_buffer.get(self.index) {
-                Some(t) => {
-                    self.index += 1;
-                    Some(Ok(*t))
-                }
-                None => None,
-            },
+            Ok(()) => self.out_buffer.get(self.index).copied().map(|t| {
+                self.index += 1;
+                Ok(t)
+            }),
         }
     }
 }

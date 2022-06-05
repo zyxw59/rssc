@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::collections::hash_map::Keys;
+use std::collections::HashMap;
 
 use super::Token;
 
@@ -50,7 +50,8 @@ impl SegmentMap {
             Token::try_from_u8_escaped(key[1] as u8)
         } else {
             None
-        }.unwrap_or_else(|| {
+        }
+        .unwrap_or_else(|| {
             self.pad(key.len());
             let entry = self.vec[key.len() - 1].entry(key);
             let max_token = self.max_token + 1;
@@ -105,6 +106,6 @@ impl<'a> Iterator for SegmentMapIter<'a> {
                 None
             };
         }
-        self.keys.as_mut().and_then(|ref mut m| m.next())
+        self.keys.as_mut().and_then(|m| m.next())
     }
 }

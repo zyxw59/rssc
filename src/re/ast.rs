@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use super::{token::Token, program};
+use super::{
+    program::{self, Instr},
+    token::Token,
+};
 
 /// A regular expression
 #[derive(Debug)]
@@ -28,72 +31,69 @@ pub enum Regex<T: Token> {
 impl<T: Token> Regex<T> {
     /// Compiles a regular expression into a program to be executed.
     pub fn compile(self) -> program::Program<T> {
-        use self::program::Instr::*;
         // first, match /.*?/ to find earliest start of match, and save match point
-        let mut v = vec![JSplit(3), Any, Jump(0), Save(0)];
+        let mut v = vec![Instr::JSplit(3), Instr::Any, Instr::Jump(0), Instr::Save(0)];
         let mut num_captures = 0;
         self.compile_partial(&mut v, &mut num_captures);
         // save end of match
-        v.push(Save(1));
+        v.push(Instr::Save(1));
         // finish
-        v.push(Match);
+        v.push(Instr::Match);
 
         // construct final program
         program::Program::new(v, 2 + num_captures * 2)
     }
 
     fn compile_partial(self, v: &mut Vec<program::Instr<T>>, num_captures: &mut usize) {
-        use self::program::Instr::*;
         match self {
             Regex::Empty => {}
-            Regex::Literal(toks) => for t in toks {
-                v.push(Token(t));
-            },
+            Regex::Literal(toks) => {
+                v.extend(toks.into_iter().map(Instr::Token));
+            }
             Regex::Any => {
-                v.push(Any);
+                v.push(Instr::Any);
             }
             Regex::WordBoundary => {
-                v.push(WordBoundary);
+                v.push(Instr::WordBoundary);
             }
             Regex::Set(set) => {
-                v.push(Set(set));
+                v.push(Instr::Set(set));
             }
             Regex::Repeat(e, rep) => {
-                use self::Repeater::*;
                 match rep {
-                    ZeroOrOne(greedy) => {
+                    Repeater::ZeroOrOne(greedy) => {
                         // store current length of vector, i.e. index of `Split` instruction
                         let i = v.len();
                         // dummy instruction
-                        v.push(Split(0));
+                        v.push(Instr::Split(0));
                         // compile `e`
                         e.compile_partial(v, num_captures);
                         if greedy {
                             // prefer not to skip to end
-                            v[i] = Split(v.len());
+                            v[i] = Instr::Split(v.len());
                         } else {
                             // prefer to skip to end
-                            v[i] = JSplit(v.len());
+                            v[i] = Instr::JSplit(v.len());
                         }
                     }
-                    ZeroOrMore(greedy) => {
+                    Repeater::ZeroOrMore(greedy) => {
                         // save current pc
                         let start = v.len();
                         // dummy instruction
-                        v.push(Split(0));
+                        v.push(Instr::Split(0));
                         // compile `e`
                         e.compile_partial(v, num_captures);
                         // repeat
-                        v.push(Jump(start));
+                        v.push(Instr::Jump(start));
                         if greedy {
                             // prefer not to skip to end
-                            v[start] = Split(v.len());
+                            v[start] = Instr::Split(v.len());
                         } else {
                             // prefer to skip to end
-                            v[start] = JSplit(v.len());
+                            v[start] = Instr::JSplit(v.len());
                         }
                     }
-                    OneOrMore(greedy) => {
+                    Repeater::OneOrMore(greedy) => {
                         // save current pc
                         let start = v.len();
                         // compile `e`
@@ -101,10 +101,10 @@ impl<T: Token> Regex<T> {
                         e.compile_partial(v, num_captures);
                         if greedy {
                             // prefer to repeat
-                            v.push(JSplit(start));
+                            v.push(Instr::JSplit(start));
                         } else {
                             // prefer not to repeat, i.e. prefer to continue
-                            v.push(Split(start));
+                            v.push(Instr::Split(start));
                         }
                     }
                 }
@@ -115,15 +115,17 @@ impl<T: Token> Regex<T> {
                 // save current value of `num_captures`, incase `e` has any captures
                 let n = *num_captures;
                 // save begining of capture
-                v.push(Save(n * 2));
+                v.push(Instr::Save(n * 2));
                 // match `e`
                 e.compile_partial(v, num_captures);
                 // save end of capture
-                v.push(Save(n * 2 + 1));
+                v.push(Instr::Save(n * 2 + 1));
             }
-            Regex::Concat(es) => for e in es {
-                e.compile_partial(v, num_captures);
-            },
+            Regex::Concat(es) => {
+                for e in es {
+                    e.compile_partial(v, num_captures);
+                }
+            }
             Regex::Alternate(mut es) => {
                 // this can definitely be optimized by using maps
                 // for now, a simple iteration over alternatives
@@ -141,20 +143,20 @@ impl<T: Token> Regex<T> {
                         // save split location
                         splits.push(v.len());
                         // dummy instruction
-                        v.push(Split(0));
+                        v.push(Instr::Split(0));
                         // compile `e`
                         e.compile_partial(v, num_captures);
                         // store jump location
                         jumps.push(v.len());
                         // dummy instruction
-                        v.push(Jump(0));
+                        v.push(Instr::Jump(0));
                     }
 
                     // now, set splits correctly -- each split should point to the next one, except
                     // for the last, which should point where we are now.
                     splits.push(v.len());
                     for (i, j) in splits.iter().zip(splits[1..].iter()) {
-                        v[*i] = Split(*j);
+                        v[*i] = Instr::Split(*j);
                     }
 
                     // compile `last`
@@ -163,7 +165,7 @@ impl<T: Token> Regex<T> {
                     // now, set jumps correctly -- all jumps should point to where we are now.
                     let pc = v.len();
                     for i in jumps {
-                        v[i] = Jump(pc);
+                        v[i] = Instr::Jump(pc);
                     }
                 }
                 // if the `if let` failed, it means that `es` was empty, so we should do nothing

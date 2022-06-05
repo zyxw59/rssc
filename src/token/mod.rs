@@ -87,7 +87,7 @@ impl Token {
     ///
     /// Panics if `index + 0x80` is greater than `u16::MAX`
     pub fn from_index(index: usize) -> Token {
-        if index > (::std::u16::MAX as usize) - 0x80 {
+        if index > (u16::MAX as usize) - 0x80 {
             panic!("index {} out of range for legal `Token` values", index);
         }
         Token((index as u16) + 0x80)
