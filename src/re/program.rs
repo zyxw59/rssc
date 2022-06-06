@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::ops::Index;
 
@@ -11,17 +10,6 @@ pub type InstrPtr = usize;
 /// A single instruction
 #[derive(Debug)]
 pub enum Instr<T: Token, E: Engine<T>> {
-    /// Matches a single token.
-    Token(T),
-    /// Matches any token.
-    Any,
-    /// Maps input tokens to new `InstrPtr`s. If the input token is not found, falls through to the
-    /// next instruction.
-    Map(HashMap<T, InstrPtr>),
-    /// Matches a single token from a set of tokens.
-    Set(HashSet<T>),
-    /// Matches a word boundary.
-    WordBoundary,
     /// Splits into two states, preferring not to jump. Used to implement alternations and
     /// quantifiers
     Split(InstrPtr),
@@ -114,13 +102,7 @@ impl<E> ThreadList<E> {
                 }
             }
             Instr::Reject => {} // do nothing, this thread is dead
-            Instr::Token(_)
-            | Instr::Map(_)
-            | Instr::Set(_)
-            | Instr::Any
-            | Instr::WordBoundary
-            | Instr::Consume(_)
-            | Instr::Match => {
+            Instr::Consume(_) | Instr::Match => {
                 // push a new thread with the given pc
                 self.threads.push(Thread::new(pc, engine));
             }
@@ -156,77 +138,42 @@ impl<T: Token, E: Engine<T>> Program<T, E> {
     where
         I: IntoIterator<Item = T>,
     {
-        let mut input = input.into_iter().peekable();
+        let mut input = input.into_iter().enumerate().peekable();
 
         // initialize thread lists. The number of threads should be limited by the length of the
-        // program (since each instruction either ends a thread (in the case of a `Match` or a
-        // failed `Token` instruction), continues an existing thread (in the case of a successful
-        // `Token`, `Jump`, or `Peek` instruction), or spawns a new thread (in the case of a
-        // `Split` or `JSplit` instruction))
+        // program, since each instruction either ends a thread (in the case of a `Match`, `Reject`
+        // or a failed `Peek` or `Consume` instruction), continues an existing thread (in the case
+        // of a successful `Consume`, `Jump`, or `Peek` instruction), or spawns a new thread (in
+        // the case of a `Split` or `JSplit` instruction)
         let mut curr = ThreadList::new(self.prog.len());
         let mut next = ThreadList::new(self.prog.len());
 
         let mut saves = Vec::new();
 
         // start initial thread at start instruction
-        curr.add_thread(0, 0, input.peek(), self, E::initialize(&self.init));
-
-        // set initial word flag
-        let mut word = false;
-
-        // to store the iteration number (declaring it here so it can be used in the final checks
-        // after the loop)
-        let mut i = 0;
+        curr.add_thread(
+            0,
+            0,
+            input.peek().map(|(_i, tok)| tok),
+            self,
+            E::initialize(&self.init),
+        );
 
         // iterate over tokens of input string
-        while let Some(tok_i) = input.next() {
-            // check if word boundary
-            let new_word = tok_i.is_word();
-            let word_boundary = new_word ^ word;
-            word = new_word;
+        while let Some((i, tok_i)) = input.next() {
             // iterate over active threads, draining the list so we can reuse it without
             // reallocating
             for mut th in &mut curr {
                 match &self[th.pc] {
-                    Instr::Token(token) => {
-                        // check if token matches
-                        if &tok_i == token {
-                            // increment thread pc, passing along next input index, and saved
-                            // positions
-                            next.add_thread(th.pc + 1, i + 1, input.peek(), self, th.engine);
-                        }
-                    }
-                    Instr::Set(set) => {
-                        // check if token in set
-                        if set.contains(&tok_i) {
-                            // increment thread pc, passing along next input index, and saved
-                            // positions
-                            next.add_thread(th.pc + 1, i + 1, input.peek(), self, th.engine);
-                        }
-                    }
-                    Instr::Map(map) => {
-                        // get the corresponding pc, or default to incrementing
-                        next.add_thread(
-                            map.get(&tok_i).cloned().unwrap_or(th.pc + 1),
-                            i + 1,
-                            input.peek(),
-                            self,
-                            th.engine,
-                        );
-                    }
-                    Instr::Any => {
-                        // always matches
-                        next.add_thread(th.pc + 1, i + 1, input.peek(), self, th.engine);
-                    }
-                    Instr::WordBoundary => {
-                        // check if word boundary
-                        if word_boundary {
-                            next.add_thread(th.pc + 1, i, input.peek(), self, th.engine);
-                        }
-                    }
                     Instr::Consume(args) => {
                         if th.engine.consume(args, i, &tok_i) {
-                            next.add_thread(th.pc + 1, i + 1, input.peek(), self, th.engine);
+                            next.add_thread(
+                                th.pc + 1,
+                                i + 1,
+                                input.peek().map(|(_i, tok)| tok),
+                                self,
+                                th.engine,
+                            );
                         }
                     }
                     Instr::Match => {
@@ -247,31 +194,16 @@ impl<T: Token, E: Engine<T>> Program<T, E> {
             // `next` becomes list of active threads, and `curr` (empty after iteration) can hold
             // the next iteration
             mem::swap(&mut curr, &mut next);
-            // increment`i`
-            i += 1;
         }
 
-        // now iterate over remaining threads, to check for pending word boundary instructions
-        for th in &mut curr {
+        // now iterate over remaining threads, to check for pending match instructions
+        for mut th in &mut curr {
             match self[th.pc] {
-                Instr::WordBoundary => {
-                    // check if last token was a word token
-                    if word {
-                        next.add_thread(th.pc + 1, i, None, self, th.engine);
-                    }
-                }
                 Instr::Match => {
                     saves.push(th.engine);
                 }
                 // anything else is a failed match
                 _ => {}
-            }
-        }
-
-        // now iterate over remaining threads, to check for pending match instructions
-        for th in &mut next {
-            if let Instr::Match = self[th.pc] {
-                saves.push(th.engine);
             }
         }
 

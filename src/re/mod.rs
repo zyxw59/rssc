@@ -71,7 +71,7 @@ mod tests {
             // 0: *? quantifier
             JSplit(3),
             // 1: match a token
-            Any,
+            Consume(TestConsume::Any),
             // 2: repeat
             Jump(0),
             // 3: save start of match
@@ -79,11 +79,11 @@ mod tests {
             // 4: save start of first subgroup
             Peek(TestPeek::Save(2)),
             // 5: a
-            Token('a'),
+            Consume(TestConsume::Token('a')),
             // 6: optional b
             Split(8),
             // 7: b
-            Token('b'),
+            Consume(TestConsume::Token('b')),
             // 8: save end of first subgroup
             Peek(TestPeek::Save(3)),
             // 9: save start of second subgroup
@@ -91,13 +91,13 @@ mod tests {
             // 10: optional b
             Split(12),
             // 11: b
-            Token('b'),
+            Consume(TestConsume::Token('b')),
             // 12: c
-            Token('c'),
+            Consume(TestConsume::Token('c')),
             // 13: save end of second subgroup
             Peek(TestPeek::Save(5)),
             // 14: word boundary
-            WordBoundary,
+            Peek(TestPeek::WordBoundary),
             // 15: save end of match
             Peek(TestPeek::Save(1)),
             // 16: end of match
@@ -113,6 +113,8 @@ mod tests {
                 &[Some(3), Some(6), Some(3), Some(4), Some(4), Some(6)],
             ]
         );
+        let saves = program.exec("ducabcd".chars());
+        assert!(saves.is_empty());
     }
 
     // #[test]
