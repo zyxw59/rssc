@@ -113,6 +113,14 @@ mod tests {
                 &[Some(3), Some(6), Some(3), Some(4), Some(4), Some(6)],
             ]
         );
+        let saves = program.exec("ducabc".chars());
+        assert_eq!(
+            saves.iter().map(|engine| &engine.saves).collect::<Vec<_>>(),
+            &[
+                &[Some(3), Some(6), Some(3), Some(5), Some(5), Some(6)],
+                &[Some(3), Some(6), Some(3), Some(4), Some(4), Some(6)],
+            ]
+        );
         let saves = program.exec("ducabcd".chars());
         assert!(saves.is_empty());
     }
