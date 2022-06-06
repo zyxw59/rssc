@@ -6,50 +6,6 @@ mod re;
 mod rule;
 pub mod tokenizer;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn null_line() {
-        let line = Vec::new();
-        let ty = match_line(&mut line.iter());
-        assert_eq!(ty, StatementType::Null);
-    }
-
-    #[test]
-    fn comment_line() {
-        let line = vec![Token::Slash, Token::Space, Token::Star];
-        let ty = match_line(&mut line.iter());
-        assert_eq!(ty, StatementType::Comment);
-    }
-
-    #[test]
-    fn category_line() {
-        let line = vec![
-            Token::try_from_u8(b'a').unwrap(),
-            Token::Space,
-            Token::Equals,
-        ];
-        let ty = match_line(&mut line.iter());
-        assert_eq!(ty, StatementType::Category);
-    }
-
-    #[test]
-    fn rule_line() {
-        let line = vec![Token::try_from_u8(b'a').unwrap(), Token::Arrow, Token::Zero];
-        let ty = match_line(&mut line.iter());
-        assert_eq!(ty, StatementType::Rule);
-    }
-
-    #[test]
-    fn error_line() {
-        let line = vec![Token::try_from_u8(b'a').unwrap()];
-        let ty = match_line(&mut line.iter());
-        assert_eq!(ty, StatementType::Error);
-    }
-}
-
 /// Determines what kind of statement a line represents based on simple criteria.
 ///
 /// - If the line is empty, or all whitespace, it is an empty line.
@@ -107,4 +63,48 @@ enum StatementType {
     Rule,
     /// An invalid line.
     Error,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn null_line() {
+        let line = Vec::new();
+        let ty = match_line(&mut line.iter());
+        assert_eq!(ty, StatementType::Null);
+    }
+
+    #[test]
+    fn comment_line() {
+        let line = vec![Token::Slash, Token::Space, Token::Star];
+        let ty = match_line(&mut line.iter());
+        assert_eq!(ty, StatementType::Comment);
+    }
+
+    #[test]
+    fn category_line() {
+        let line = vec![
+            Token::try_from_u8(b'a').unwrap(),
+            Token::Space,
+            Token::Equals,
+        ];
+        let ty = match_line(&mut line.iter());
+        assert_eq!(ty, StatementType::Category);
+    }
+
+    #[test]
+    fn rule_line() {
+        let line = vec![Token::try_from_u8(b'a').unwrap(), Token::Arrow, Token::Zero];
+        let ty = match_line(&mut line.iter());
+        assert_eq!(ty, StatementType::Rule);
+    }
+
+    #[test]
+    fn error_line() {
+        let line = vec![Token::try_from_u8(b'a').unwrap()];
+        let ty = match_line(&mut line.iter());
+        assert_eq!(ty, StatementType::Error);
+    }
 }

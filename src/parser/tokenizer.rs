@@ -13,61 +13,6 @@ use crate::{
 
 use super::re::{Instr, Program, RegexExtension};
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use unicode_normalization::UnicodeNormalization;
-
-    #[test]
-    fn multiple_possible_segmentations() {
-        let line = String::from("antś\n");
-        let line = line.chars().nfd();
-        let segments =
-            SegmentMap::clone_from_vec(&vec![vec!['a', 'n'], vec!['n', 't'], vec!['t', 's']]);
-        let prog = matcher(&segments);
-        println!("{prog}");
-
-        let saves = prog.exec(line);
-        assert_eq!(saves, Some(vec![0, 2, 3, 5, 6]));
-    }
-
-    #[test]
-    fn combining_double() {
-        let line = String::from("t͜s\n");
-        let line = line.chars().nfd();
-        let segments = SegmentMap::clone_from_vec(&Vec::new());
-        let prog = matcher(&segments);
-        println!("{prog}");
-
-        let saves = prog.exec(line);
-        assert_eq!(saves, Some(vec![0, 3, 4]));
-    }
-
-    #[test]
-    fn backslash() {
-        let line = String::from("\\.\n");
-        let line = line.chars().nfd();
-        let segments = SegmentMap::clone_from_vec(&Vec::new());
-        let prog = matcher(&segments);
-        println!("{prog}");
-
-        let saves = prog.exec(line);
-        assert_eq!(saves, Some(vec![0, 2, 3]));
-    }
-
-    #[test]
-    fn backslash_newline() {
-        let line = String::from("\\\n");
-        let line = line.chars().nfd();
-        let segments = SegmentMap::clone_from_vec(&Vec::new());
-        let prog = matcher(&segments);
-        println!("{prog}");
-
-        let saves = prog.exec(line);
-        assert_eq!(saves, Some(vec![0, 2]));
-    }
-}
-
 /// A `RegexExtension` for the tokenizer.
 #[derive(Clone, Copy, Debug)]
 pub enum TokenizerExtension {
@@ -276,4 +221,58 @@ pub enum Error {
     /// The specified IO error occurred.
     #[error(transparent)]
     IO(#[from] io::Error),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use unicode_normalization::UnicodeNormalization;
+
+    #[test]
+    fn multiple_possible_segmentations() {
+        let line = String::from("antś\n");
+        let line = line.chars().nfd();
+        let segments = SegmentMap::from_list(&[vec!['a', 'n'], vec!['n', 't'], vec!['t', 's']]);
+        let prog = matcher(&segments);
+        println!("{prog}");
+
+        let saves = prog.exec(line);
+        assert_eq!(saves, Some(vec![0, 2, 3, 5, 6]));
+    }
+
+    #[test]
+    fn combining_double() {
+        let line = String::from("t͜s\n");
+        let line = line.chars().nfd();
+        let segments = SegmentMap::from_list(&[]);
+        let prog = matcher(&segments);
+        println!("{prog}");
+
+        let saves = prog.exec(line);
+        assert_eq!(saves, Some(vec![0, 3, 4]));
+    }
+
+    #[test]
+    fn backslash() {
+        let line = String::from("\\.\n");
+        let line = line.chars().nfd();
+        let segments = SegmentMap::from_list(&[]);
+        let prog = matcher(&segments);
+        println!("{prog}");
+
+        let saves = prog.exec(line);
+        assert_eq!(saves, Some(vec![0, 2, 3]));
+    }
+
+    #[test]
+    fn backslash_newline() {
+        let line = String::from("\\\n");
+        let line = line.chars().nfd();
+        let segments = SegmentMap::from_list(&[]);
+        let prog = matcher(&segments);
+        println!("{prog}");
+
+        let saves = prog.exec(line);
+        assert_eq!(saves, Some(vec![0, 2]));
+    }
 }

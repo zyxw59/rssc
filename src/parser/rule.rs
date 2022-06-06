@@ -5,323 +5,6 @@ use crate::{
     token::Token,
 };
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_number() {
-        let input = vec![
-            Token::try_from_u8(b'1').unwrap(),
-            Token::try_from_u8(b'2').unwrap(),
-            Token::try_from_u8(b'3').unwrap(),
-        ];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let num = parser.parse_number();
-        assert_eq!(num, 123);
-        assert_eq!(parser.next(), None);
-    }
-
-    #[test]
-    fn parse_ident() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let b = Token::try_from_u8(b'b').unwrap();
-        let c = Token::try_from_u8(b'c').unwrap();
-        let input = vec![a, b, c];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let ident = parser.parse_ident();
-        assert_eq!(ident, vec![a, b, c]);
-    }
-
-    #[test]
-    fn parse_category_no_number() {
-        let c = Token::try_from_u8(b'C').unwrap();
-        let input = vec![Token::OpenBrace, c, Token::CloseBrace];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(
-            result,
-            Ok(Pattern::Category(Category {
-                name: vec![c],
-                number: None,
-            }))
-        );
-    }
-
-    #[test]
-    fn parse_category_number() {
-        let c = Token::try_from_u8(b'C').unwrap();
-        let input = vec![
-            Token::OpenBrace,
-            Token::try_from_u8(b'3').unwrap(),
-            Token::Colon,
-            c,
-            Token::CloseBrace,
-        ];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(
-            result,
-            Ok(Pattern::Category(Category {
-                name: vec![c],
-                number: Some(3),
-            }))
-        );
-    }
-
-    #[test]
-    fn parse_set() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let b = Token::try_from_u8(b'b').unwrap();
-        let c = Token::try_from_u8(b'c').unwrap();
-        let input = vec![Token::OpenBracket, a, b, c, Token::CloseBracket];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Ok(Pattern::Set(vec![a, b, c])));
-    }
-
-    #[test]
-    fn simple_expr() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let b = Token::try_from_u8(b'b').unwrap();
-        let input = vec![a, Token::Pipe, b];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(
-            result,
-            Ok(Pattern::Alternate(vec![
-                Pattern::Literal(a),
-                Pattern::Literal(b),
-            ]))
-        );
-    }
-
-    #[test]
-    fn repeater() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![a, Token::Question];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(
-            result,
-            Ok(Pattern::Repeat(
-                Box::new(Pattern::Literal(a)),
-                Repeater::ZeroOrOne(true)
-            ))
-        );
-    }
-
-    #[test]
-    fn repeater_lazy() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![a, Token::Question, Token::Question];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(
-            result,
-            Ok(Pattern::Repeat(
-                Box::new(Pattern::Literal(a)),
-                Repeater::ZeroOrOne(false)
-            ))
-        );
-    }
-
-    #[test]
-    fn unexpected_question() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![a, Token::Question, Token::Question, Token::Question];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Err(Error::Token(3, Token::Question)));
-    }
-
-    #[test]
-    fn unexpected_open() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![a, Token::OpenParen];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Err(Error::EndOfInput));
-    }
-
-    #[test]
-    fn unexpected_open_2() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let b = Token::try_from_u8(b'b').unwrap();
-        let input = vec![a, Token::Pipe, b, Token::OpenParen];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Err(Error::EndOfInput));
-    }
-
-    #[test]
-    fn unexpected_open_3() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![a, Token::Pipe, Token::OpenParen];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Err(Error::EndOfInput));
-    }
-
-    #[test]
-    fn nested() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![Token::OpenParen, a, Token::CloseParen];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Ok(Pattern::Literal(a)));
-    }
-
-    #[test]
-    fn missing_close() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![Token::OpenParen, a];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Err(Error::EndOfInput));
-    }
-
-    #[test]
-    fn doubly_nested() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![
-            Token::OpenParen,
-            Token::OpenParen,
-            a,
-            Token::CloseParen,
-            Token::CloseParen,
-        ];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Ok(Pattern::Literal(a)));
-    }
-
-    #[test]
-    fn doubly_nested_mismatch() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![Token::OpenParen, Token::OpenParen, a, Token::CloseParen];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Err(Error::EndOfInput));
-    }
-
-    #[test]
-    fn arrow() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let input = vec![a, Token::Arrow];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_regex();
-        assert_eq!(result, Ok(Pattern::Literal(a)));
-    }
-
-    #[test]
-    fn parse_replace() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let c = Token::try_from_u8(b'C').unwrap();
-        let input = vec![
-            a,
-            Token::OpenBrace,
-            Token::try_from_u8(b'1').unwrap(),
-            Token::Colon,
-            c,
-            Token::CloseBrace,
-        ];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_replace();
-        assert_eq!(
-            result,
-            Ok(Replace(vec![
-                ReplaceTok::Token(a),
-                ReplaceTok::Category(Category {
-                    name: vec![c],
-                    number: Some(1),
-                }),
-            ]))
-        );
-    }
-
-    #[test]
-    fn simple_environment() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let b = Token::try_from_u8(b'b').unwrap();
-        let input = vec![a, Token::Underscore, b];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_environment();
-        assert_eq!(
-            result,
-            Ok(Environment::Pattern(
-                Pattern::Literal(a),
-                Pattern::Literal(b)
-            ))
-        );
-    }
-
-    #[test]
-    fn environment_or() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let b = Token::try_from_u8(b'b').unwrap();
-        let c = Token::try_from_u8(b'c').unwrap();
-        let d = Token::try_from_u8(b'd').unwrap();
-        let input = vec![
-            Token::Pipe,
-            Token::OpenParen,
-            a,
-            Token::Underscore,
-            b,
-            Token::Space,
-            c,
-            Token::Underscore,
-            d,
-            Token::CloseParen,
-        ];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_environment();
-        assert_eq!(
-            result,
-            Ok(Environment::Or(vec![
-                Environment::Pattern(Pattern::Literal(a), Pattern::Literal(b)),
-                Environment::Pattern(Pattern::Literal(c), Pattern::Literal(d)),
-            ]))
-        );
-    }
-
-    #[test]
-    fn environment_nested() {
-        let a = Token::try_from_u8(b'a').unwrap();
-        let b = Token::try_from_u8(b'b').unwrap();
-        let c = Token::try_from_u8(b'c').unwrap();
-        let d = Token::try_from_u8(b'd').unwrap();
-        let input = vec![
-            Token::Pipe,
-            Token::OpenParen,
-            Token::And,
-            Token::OpenParen,
-            a,
-            Token::Underscore,
-            Token::Space,
-            Token::Underscore,
-            b,
-            Token::CloseParen,
-            c,
-            Token::Underscore,
-            d,
-            Token::CloseParen,
-        ];
-        let mut parser = Parser(input.into_iter().peekable(), 0);
-        let result = parser.parse_environment();
-        assert_eq!(
-            result,
-            Ok(Environment::Or(vec![
-                Environment::And(vec![
-                    Environment::Pattern(Pattern::Literal(a), Pattern::Concat(vec![])),
-                    Environment::Pattern(Pattern::Concat(vec![]), Pattern::Literal(b)),
-                ]),
-                Environment::Pattern(Pattern::Literal(c), Pattern::Literal(d)),
-            ]))
-        );
-    }
-}
-
 struct Parser<I: Iterator>(Peekable<I>, usize);
 
 impl<I> Parser<I>
@@ -698,4 +381,321 @@ pub enum Error {
     /// Unexpected end of input.
     #[error("Unexpected end of input")]
     EndOfInput,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_number() {
+        let input = vec![
+            Token::try_from_u8(b'1').unwrap(),
+            Token::try_from_u8(b'2').unwrap(),
+            Token::try_from_u8(b'3').unwrap(),
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let num = parser.parse_number();
+        assert_eq!(num, 123);
+        assert_eq!(parser.next(), None);
+    }
+
+    #[test]
+    fn parse_ident() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let c = Token::try_from_u8(b'c').unwrap();
+        let input = vec![a, b, c];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let ident = parser.parse_ident();
+        assert_eq!(ident, vec![a, b, c]);
+    }
+
+    #[test]
+    fn parse_category_no_number() {
+        let c = Token::try_from_u8(b'C').unwrap();
+        let input = vec![Token::OpenBrace, c, Token::CloseBrace];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(
+            result,
+            Ok(Pattern::Category(Category {
+                name: vec![c],
+                number: None,
+            }))
+        );
+    }
+
+    #[test]
+    fn parse_category_number() {
+        let c = Token::try_from_u8(b'C').unwrap();
+        let input = vec![
+            Token::OpenBrace,
+            Token::try_from_u8(b'3').unwrap(),
+            Token::Colon,
+            c,
+            Token::CloseBrace,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(
+            result,
+            Ok(Pattern::Category(Category {
+                name: vec![c],
+                number: Some(3),
+            }))
+        );
+    }
+
+    #[test]
+    fn parse_set() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let c = Token::try_from_u8(b'c').unwrap();
+        let input = vec![Token::OpenBracket, a, b, c, Token::CloseBracket];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Ok(Pattern::Set(vec![a, b, c])));
+    }
+
+    #[test]
+    fn simple_expr() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let input = vec![a, Token::Pipe, b];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(
+            result,
+            Ok(Pattern::Alternate(vec![
+                Pattern::Literal(a),
+                Pattern::Literal(b),
+            ]))
+        );
+    }
+
+    #[test]
+    fn repeater() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Question];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(
+            result,
+            Ok(Pattern::Repeat(
+                Box::new(Pattern::Literal(a)),
+                Repeater::ZeroOrOne(true)
+            ))
+        );
+    }
+
+    #[test]
+    fn repeater_lazy() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Question, Token::Question];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(
+            result,
+            Ok(Pattern::Repeat(
+                Box::new(Pattern::Literal(a)),
+                Repeater::ZeroOrOne(false)
+            ))
+        );
+    }
+
+    #[test]
+    fn unexpected_question() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Question, Token::Question, Token::Question];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::Token(3, Token::Question)));
+    }
+
+    #[test]
+    fn unexpected_open() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::OpenParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn unexpected_open_2() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let input = vec![a, Token::Pipe, b, Token::OpenParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn unexpected_open_3() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Pipe, Token::OpenParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn nested() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![Token::OpenParen, a, Token::CloseParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Ok(Pattern::Literal(a)));
+    }
+
+    #[test]
+    fn missing_close() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![Token::OpenParen, a];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn doubly_nested() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![
+            Token::OpenParen,
+            Token::OpenParen,
+            a,
+            Token::CloseParen,
+            Token::CloseParen,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Ok(Pattern::Literal(a)));
+    }
+
+    #[test]
+    fn doubly_nested_mismatch() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![Token::OpenParen, Token::OpenParen, a, Token::CloseParen];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn arrow() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let input = vec![a, Token::Arrow];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_regex();
+        assert_eq!(result, Ok(Pattern::Literal(a)));
+    }
+
+    #[test]
+    fn parse_replace() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let c = Token::try_from_u8(b'C').unwrap();
+        let input = vec![
+            a,
+            Token::OpenBrace,
+            Token::try_from_u8(b'1').unwrap(),
+            Token::Colon,
+            c,
+            Token::CloseBrace,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_replace();
+        assert_eq!(
+            result,
+            Ok(Replace(vec![
+                ReplaceTok::Token(a),
+                ReplaceTok::Category(Category {
+                    name: vec![c],
+                    number: Some(1),
+                }),
+            ]))
+        );
+    }
+
+    #[test]
+    fn simple_environment() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let input = vec![a, Token::Underscore, b];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_environment();
+        assert_eq!(
+            result,
+            Ok(Environment::Pattern(
+                Pattern::Literal(a),
+                Pattern::Literal(b)
+            ))
+        );
+    }
+
+    #[test]
+    fn environment_or() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let c = Token::try_from_u8(b'c').unwrap();
+        let d = Token::try_from_u8(b'd').unwrap();
+        let input = vec![
+            Token::Pipe,
+            Token::OpenParen,
+            a,
+            Token::Underscore,
+            b,
+            Token::Space,
+            c,
+            Token::Underscore,
+            d,
+            Token::CloseParen,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_environment();
+        assert_eq!(
+            result,
+            Ok(Environment::Or(vec![
+                Environment::Pattern(Pattern::Literal(a), Pattern::Literal(b)),
+                Environment::Pattern(Pattern::Literal(c), Pattern::Literal(d)),
+            ]))
+        );
+    }
+
+    #[test]
+    fn environment_nested() {
+        let a = Token::try_from_u8(b'a').unwrap();
+        let b = Token::try_from_u8(b'b').unwrap();
+        let c = Token::try_from_u8(b'c').unwrap();
+        let d = Token::try_from_u8(b'd').unwrap();
+        let input = vec![
+            Token::Pipe,
+            Token::OpenParen,
+            Token::And,
+            Token::OpenParen,
+            a,
+            Token::Underscore,
+            Token::Space,
+            Token::Underscore,
+            b,
+            Token::CloseParen,
+            c,
+            Token::Underscore,
+            d,
+            Token::CloseParen,
+        ];
+        let mut parser = Parser(input.into_iter().peekable(), 0);
+        let result = parser.parse_environment();
+        assert_eq!(
+            result,
+            Ok(Environment::Or(vec![
+                Environment::And(vec![
+                    Environment::Pattern(Pattern::Literal(a), Pattern::Concat(vec![])),
+                    Environment::Pattern(Pattern::Concat(vec![]), Pattern::Literal(b)),
+                ]),
+                Environment::Pattern(Pattern::Literal(c), Pattern::Literal(d)),
+            ]))
+        );
+    }
 }

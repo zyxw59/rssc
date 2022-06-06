@@ -8,29 +8,6 @@ use crate::{
     unicode::{is_combining_double, is_modifier},
 };
 
-#[test]
-fn test_decompose() {
-    // U+E1
-    let s1 = "ábc";
-    // U+61 U+0301
-    let s2 = "ábc";
-    assert_eq!(Segment::parse_string(s1), Segment::parse_string(s2));
-}
-
-#[test]
-fn test_combine() {
-    let s = "t͜ʃa";
-    let seg1 = Segment {
-        symbol: String::from("t͜ʃ"),
-        whitespace: false,
-    };
-    let seg2 = Segment {
-        symbol: String::from("a"),
-        whitespace: false,
-    };
-    assert_eq!(Segment::parse_string(s), vec![seg1, seg2]);
-}
-
 /// A phonological segment
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Segment {
@@ -126,5 +103,33 @@ impl fmt::Display for Segment {
     /// Displays the symbol
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         self.symbol.fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Segment;
+
+    #[test]
+    fn decompose() {
+        // U+E1
+        let s1 = "ábc";
+        // U+61 U+0301
+        let s2 = "ábc";
+        assert_eq!(Segment::parse_string(s1), Segment::parse_string(s2));
+    }
+
+    #[test]
+    fn combine() {
+        let s = "t͜ʃa";
+        let seg1 = Segment {
+            symbol: String::from("t͜ʃ"),
+            whitespace: false,
+        };
+        let seg2 = Segment {
+            symbol: String::from("a"),
+            whitespace: false,
+        };
+        assert_eq!(Segment::parse_string(s), vec![seg1, seg2]);
     }
 }

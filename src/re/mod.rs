@@ -1,3 +1,7 @@
+pub mod ast;
+pub mod program;
+pub mod token;
+
 #[cfg(test)]
 mod tests {
     use super::ast;
@@ -81,7 +85,3 @@ mod tests {
         );
     }
 }
-
-pub mod ast;
-pub mod program;
-pub mod token;
