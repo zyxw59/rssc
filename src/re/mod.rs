@@ -8,7 +8,7 @@ pub mod token;
 mod tests {
     use super::{
         //ast,
-        engine::{Check, Engine},
+        engine::Engine,
         program,
         token::Token,
     };
@@ -22,49 +22,45 @@ mod tests {
     impl<T: Token> Engine<T> for TestEngine {
         /// Number of save slots.
         type Init = usize;
-        type Consumer = TestConsumer<T>;
-        type Peeker = TestPeeker;
+        type Consume = TestConsume<T>;
+        type Peek = TestPeek;
 
-        fn initialize(num_slots: Self::Init) -> Self {
+        fn initialize(num_slots: &Self::Init) -> Self {
             TestEngine {
-                saves: vec![None; num_slots],
+                saves: vec![None; *num_slots],
                 is_word: false,
             }
         }
-    }
 
-    pub enum TestConsumer<T> {
-        Any,
-        Token(T),
-    }
-
-    impl<'t, T: Token> Check<TestEngine, &'t T> for TestConsumer<T> {
-        fn check(&self, engine: &mut TestEngine, _index: usize, token: &'t T) -> bool {
-            engine.is_word = token.is_word();
-            match self {
-                Self::Any => true,
-                Self::Token(expected) => expected == token,
+        fn consume(&mut self, args: &Self::Consume, _index: usize, token: &T) -> bool {
+            self.is_word = token.is_word();
+            match args {
+                TestConsume::Any => true,
+                TestConsume::Token(expected) => expected == token,
             }
         }
-    }
 
-    pub enum TestPeeker {
-        WordBoundary,
-        Save(usize),
-    }
-
-    impl<'t, T: Token> Check<TestEngine, Option<&'t T>> for TestPeeker {
-        fn check(&self, engine: &mut TestEngine, index: usize, token: Option<&'t T>) -> bool {
-            match self {
-                TestPeeker::WordBoundary => token
+        fn peek(&mut self, args: &Self::Peek, index: usize, token: Option<&T>) -> bool {
+            match args {
+                TestPeek::WordBoundary => token
                     .as_ref()
-                    .map_or(true, |tok| tok.is_word() ^ engine.is_word),
-                TestPeeker::Save(slot) => {
-                    engine.saves[*slot] = Some(index);
+                    .map_or(true, |tok| tok.is_word() ^ self.is_word),
+                TestPeek::Save(slot) => {
+                    self.saves[*slot] = Some(index);
                     true
                 }
             }
         }
+    }
+
+    pub enum TestConsume<T> {
+        Any,
+        Token(T),
+    }
+
+    pub enum TestPeek {
+        WordBoundary,
+        Save(usize),
     }
 
     #[test]
@@ -79,9 +75,9 @@ mod tests {
             // 2: repeat
             Jump(0),
             // 3: save start of match
-            Peek(TestPeeker::Save(0)),
+            Peek(TestPeek::Save(0)),
             // 4: save start of first subgroup
-            Peek(TestPeeker::Save(2)),
+            Peek(TestPeek::Save(2)),
             // 5: a
             Token('a'),
             // 6: optional b
@@ -89,9 +85,9 @@ mod tests {
             // 7: b
             Token('b'),
             // 8: save end of first subgroup
-            Peek(TestPeeker::Save(3)),
+            Peek(TestPeek::Save(3)),
             // 9: save start of second subgroup
-            Peek(TestPeeker::Save(4)),
+            Peek(TestPeek::Save(4)),
             // 10: optional b
             Split(12),
             // 11: b
@@ -99,11 +95,11 @@ mod tests {
             // 12: c
             Token('c'),
             // 13: save end of second subgroup
-            Peek(TestPeeker::Save(5)),
+            Peek(TestPeek::Save(5)),
             // 14: word boundary
             WordBoundary,
             // 15: save end of match
-            Peek(TestPeeker::Save(1)),
+            Peek(TestPeek::Save(1)),
             // 16: end of match
             Match,
         ];
