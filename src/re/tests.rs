@@ -1,9 +1,4 @@
-use super::{
-    //ast,
-    engine::Engine,
-    program,
-    token::Token,
-};
+use super::{engine::Engine, program};
 
 #[derive(Clone, Debug)]
 pub struct TestEngine {
@@ -11,10 +6,10 @@ pub struct TestEngine {
     is_word: bool,
 }
 
-impl<T: Token> Engine<T> for TestEngine {
+impl Engine<char> for TestEngine {
     /// Number of save slots.
     type Init = usize;
-    type Consume = TestConsume<T>;
+    type Consume = TestConsume;
     type Peek = TestPeek;
 
     fn initialize(num_slots: &Self::Init) -> Self {
@@ -24,19 +19,19 @@ impl<T: Token> Engine<T> for TestEngine {
         }
     }
 
-    fn consume(&mut self, args: &Self::Consume, _index: usize, token: &T) -> bool {
-        self.is_word = token.is_word();
+    fn consume(&mut self, args: &Self::Consume, _index: usize, token: &char) -> bool {
+        self.is_word = !token.is_whitespace();
         match args {
             TestConsume::Any => true,
             TestConsume::Token(expected) => expected == token,
         }
     }
 
-    fn peek(&mut self, args: &Self::Peek, index: usize, token: Option<&T>) -> bool {
+    fn peek(&mut self, args: &Self::Peek, index: usize, token: Option<&char>) -> bool {
         match args {
             TestPeek::WordBoundary => token
                 .as_ref()
-                .map_or(true, |tok| tok.is_word() ^ self.is_word),
+                .map_or(true, |tok| !tok.is_whitespace() ^ self.is_word),
             TestPeek::Save(slot) => {
                 self.saves[*slot] = Some(index);
                 true
@@ -45,9 +40,9 @@ impl<T: Token> Engine<T> for TestEngine {
     }
 }
 
-pub enum TestConsume<T> {
+pub enum TestConsume {
     Any,
-    Token(T),
+    Token(char),
 }
 
 pub enum TestPeek {
@@ -94,25 +89,25 @@ fn program() {
         Peek(TestPeek::Save(1)),
         // 16: end of match
         Match,
-        ];
-        let num_slots = 6;
-        let program = program::Program::new(prog, num_slots);
-        let saves = program.exec("ducabc ".chars());
-        assert_eq!(
-            saves.iter().map(|engine| &engine.saves).collect::<Vec<_>>(),
-            &[
+    ];
+    let num_slots = 6;
+    let program = program::Program::new(prog, num_slots);
+    let saves = program.exec("ducabc ".chars());
+    assert_eq!(
+        saves.iter().map(|engine| &engine.saves).collect::<Vec<_>>(),
+        &[
             &[Some(3), Some(6), Some(3), Some(5), Some(5), Some(6)],
             &[Some(3), Some(6), Some(3), Some(4), Some(4), Some(6)],
-            ]
-        );
-        let saves = program.exec("ducabc".chars());
-        assert_eq!(
-            saves.iter().map(|engine| &engine.saves).collect::<Vec<_>>(),
-            &[
+        ]
+    );
+    let saves = program.exec("ducabc".chars());
+    assert_eq!(
+        saves.iter().map(|engine| &engine.saves).collect::<Vec<_>>(),
+        &[
             &[Some(3), Some(6), Some(3), Some(5), Some(5), Some(6)],
             &[Some(3), Some(6), Some(3), Some(4), Some(4), Some(6)],
-            ]
-        );
-        let saves = program.exec("ducabcd".chars());
-        assert!(saves.is_empty());
+        ]
+    );
+    let saves = program.exec("ducabcd".chars());
+    assert!(saves.is_empty());
 }

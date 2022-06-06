@@ -2,14 +2,13 @@ use std::mem;
 use std::ops::Index;
 
 use super::engine::Engine;
-use super::token::Token;
 
 /// Type for indexing into a program
 pub type InstrPtr = usize;
 
 /// A single instruction
 #[derive(Debug)]
-pub enum Instr<T: Token, E: Engine<T>> {
+pub enum Instr<T, E: Engine<T>> {
     /// Splits into two states, preferring not to jump. Used to implement alternations and
     /// quantifiers
     Split(InstrPtr),
@@ -62,7 +61,7 @@ impl<E> ThreadList<E> {
     /// locations. If `pc` points to a `Jump`, `Split`, `JSplit`, or `Peek` instruction, calls
     /// `add_thread` recursively, so that the active `ThreadList` never contains pointers to those
     /// instructions.
-    fn add_thread<T: Token>(
+    fn add_thread<T>(
         &mut self,
         pc: InstrPtr,
         in_idx: usize,
@@ -120,14 +119,14 @@ impl<'a, E> IntoIterator for &'a mut ThreadList<E> {
 }
 
 /// A program for the VM
-pub struct Program<T: Token, E: Engine<T>> {
+pub struct Program<T, E: Engine<T>> {
     /// List of instructions. `InstrPtr`s are indexed into this vector
     prog: Vec<Instr<T, E>>,
     /// Initialization arguments for the engine
     init: E::Init,
 }
 
-impl<T: Token, E: Engine<T>> Program<T, E> {
+impl<T, E: Engine<T>> Program<T, E> {
     pub fn new(prog: Vec<Instr<T, E>>, init: E::Init) -> Program<T, E> {
         Program { prog, init }
     }
@@ -197,7 +196,7 @@ impl<T: Token, E: Engine<T>> Program<T, E> {
         }
 
         // now iterate over remaining threads, to check for pending match instructions
-        for mut th in &mut curr {
+        for th in &mut curr {
             match self[th.pc] {
                 Instr::Match => {
                     saves.push(th.engine);
@@ -212,7 +211,7 @@ impl<T: Token, E: Engine<T>> Program<T, E> {
     }
 }
 
-impl<T: Token, E: Engine<T>> Index<InstrPtr> for Program<T, E> {
+impl<T, E: Engine<T>> Index<InstrPtr> for Program<T, E> {
     type Output = Instr<T, E>;
 
     fn index(&self, idx: InstrPtr) -> &Instr<T, E> {
