@@ -12,6 +12,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derivative"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "endian-type"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -101,6 +112,7 @@ checksum = "ad890a5eef7953f55427c50575c680c42841653abd2b028b68cd223d157f62db"
 name = "rssc"
 version = "0.1.0"
 dependencies = [
+ "derivative",
  "lazy_static 1.4.0",
  "radix_trie",
  "regex",

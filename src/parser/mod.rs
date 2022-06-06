@@ -4,7 +4,6 @@ use std::borrow::Borrow;
 
 use crate::token::Token;
 
-mod re;
 mod rule;
 pub mod tokenizer;
 
