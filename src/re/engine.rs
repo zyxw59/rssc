@@ -2,16 +2,18 @@
 
 pub trait Engine<T>: Clone {
     /// The initialization argument type for the engine.
-    type Init: Clone;
+    type Init;
     /// The type for the [`Consume`](super::program::Instr::Consume) instruction.
-    type Consumer: for<'t> Check<Self, &'t T>;
+    type Consume;
     /// The type for the [`Peek`](super::program::Instr::Peek) instruction.
-    type Peeker: for<'t> Check<Self, Option<&'t T>>;
+    type Peek;
 
     /// Initialize a new `Engine`
-    fn initialize(args: Self::Init) -> Self;
-}
+    fn initialize(args: &Self::Init) -> Self;
 
-pub trait Check<E, T> {
-    fn check(&self, engine: &mut E, index: usize, token: T) -> bool;
+    /// Call the [`Consume`](super::program::Instr::Consume) instruction.
+    fn consume(&mut self, args: &Self::Consume, index: usize, token: &T) -> bool;
+
+    /// Call the [`Peek`](super::program::Instr::Peek) instruction.
+    fn peek(&mut self, args: &Self::Peek, index: usize, token: Option<&T>) -> bool;
 }

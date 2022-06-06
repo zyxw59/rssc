@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::mem;
 use std::ops::Index;
 
-use super::engine::{Check, Engine};
+use super::engine::Engine;
 use super::token::Token;
 
 /// Type for indexing into a program
@@ -30,9 +30,9 @@ pub enum Instr<T: Token, E: Engine<T>> {
     /// Jumps to a new point in the program.
     Jump(InstrPtr),
     /// Consumes a token. The engine determines whether it matches.
-    Consume(E::Consumer),
+    Consume(E::Consume),
     /// Peeks at the next token without consuming it. The engine determines whether it matches.
-    Peek(E::Peeker),
+    Peek(E::Peek),
     /// Reject a potential match. Can be used after a Map when fallthrough should fail.
     Reject,
     /// The end of a match.
@@ -106,9 +106,9 @@ impl<E> ThreadList<E> {
                 // jump to specified pc
                 self.add_thread(jump, in_idx, next_tok, prog, engine);
             }
-            Instr::Peek(ref peeker) => {
-                // check if the checker matches here
-                if peeker.check(&mut engine, in_idx, next_tok) {
+            Instr::Peek(ref args) => {
+                // check if the engine matches here
+                if engine.peek(args, in_idx, next_tok) {
                     // and recursively add next instruction
                     self.add_thread(pc + 1, in_idx, next_tok, prog, engine);
                 }
@@ -169,7 +169,7 @@ impl<T: Token, E: Engine<T>> Program<T, E> {
         let mut saves = Vec::new();
 
         // start initial thread at start instruction
-        curr.add_thread(0, 0, input.peek(), self, E::initialize(self.init.clone()));
+        curr.add_thread(0, 0, input.peek(), self, E::initialize(&self.init));
 
         // set initial word flag
         let mut word = false;
@@ -224,8 +224,8 @@ impl<T: Token, E: Engine<T>> Program<T, E> {
                             next.add_thread(th.pc + 1, i, input.peek(), self, th.engine);
                         }
                     }
-                    Instr::Consume(consumer) => {
-                        if consumer.check(&mut th.engine, i, &tok_i) {
+                    Instr::Consume(args) => {
+                        if th.engine.consume(args, i, &tok_i) {
                             next.add_thread(th.pc + 1, i + 1, input.peek(), self, th.engine);
                         }
                     }
