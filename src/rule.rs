@@ -1,6 +1,8 @@
+//! Types representing the syntax of a sound change rule.
+
 use std::fmt;
 
-use crate::token::Token;
+use crate::{category::Ident, token::Token};
 
 /// A single sound change rule.
 pub struct Rule {
@@ -130,6 +132,3 @@ pub struct Category {
     /// The slot to associate the category with.
     pub number: Option<u8>,
 }
-
-/// A category name.
-pub type Ident = Vec<Token>;

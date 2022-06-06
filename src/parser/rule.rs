@@ -1,7 +1,8 @@
 use std::iter::Peekable;
 
 use crate::{
-    ast::{Category, Environment, Ident, Pattern, Repeater, Replace, ReplaceTok, Rule, Search},
+    category::Ident,
+    rule::{Category, Environment, Pattern, Repeater, Replace, ReplaceTok, Rule, Search},
     token::Token,
 };
 

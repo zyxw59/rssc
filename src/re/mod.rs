@@ -1,3 +1,4 @@
+//! Pattern matching based on regular expressions (but with a bit more power).
 pub mod ast;
 pub mod program;
 pub mod token;

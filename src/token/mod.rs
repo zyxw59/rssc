@@ -1,3 +1,4 @@
+//! The [`Token`] type represents a grapheme or control character.
 use std::fmt;
 use std::ops::Add;
 

@@ -1,3 +1,5 @@
+//! Functions for parsing a sound change file.
+
 use std::borrow::Borrow;
 
 use crate::token::Token;

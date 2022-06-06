@@ -1,7 +1,7 @@
-pub mod ast;
 pub mod category;
 pub mod parser;
 pub mod re;
+pub mod rule;
 pub mod token;
 pub mod unicode;
 

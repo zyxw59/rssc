@@ -1,8 +1,13 @@
+//! A [`Category`] is a set of sounds to be used in patterns and replacements.
+
 use std::cmp;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use crate::{ast::Ident, re::ast::Regex, token::Token};
+use crate::{re::ast::Regex, token::Token};
+
+/// A category name.
+pub type Ident = Vec<Token>;
 
 /// A set of sounds to be used in patterns and replacements
 #[derive(Debug)]
@@ -46,7 +51,7 @@ impl Category {
                         entry.insert(vec![i]);
                         // sort this element by length
                         sorted.insert(SortKey {
-                            key: !el.len(),
+                            key: el.len(),
                             value: i,
                         });
                     }
@@ -65,6 +70,7 @@ impl Category {
             Regex::Alternate(
                 sorted
                     .iter()
+                    .rev()
                     .filter_map(|x| elements[x.value].string_or_none())
                     .cloned()
                     .map(Regex::Literal)
