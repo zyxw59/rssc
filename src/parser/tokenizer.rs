@@ -1,6 +1,7 @@
 //! A regex-based tokenizer which takes an input `char` stream and outputs a `Token` stream.
 
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::io::{self, BufRead};
 use std::iter::Peekable;
 
@@ -16,7 +17,7 @@ use crate::re::{
     program::{Instr, Program},
 };
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct TokenizerEngine {
     indices: Vec<usize>,
 }
@@ -46,6 +47,15 @@ impl Engine<char> for TokenizerEngine {
     fn peek(&mut self, (): &Self::Peek, index: usize, _token: Option<&char>) -> bool {
         self.indices.push(index);
         true
+    }
+}
+
+impl Hash for TokenizerEngine {
+    fn hash<H>(&self, _state: &mut H)
+    where
+        H: Hasher,
+    {
+        // nothing to hash — ignore any state
     }
 }
 
@@ -256,6 +266,7 @@ mod tests {
         println!("{prog}");
 
         let matches = prog.exec(line);
+        assert_eq!(matches.len(), 1);
         let indices = &*matches.first().unwrap().indices;
         assert_eq!(indices, &[0, 2, 3, 5, 6]);
     }
@@ -269,6 +280,7 @@ mod tests {
         println!("{prog}");
 
         let matches = prog.exec(line);
+        assert_eq!(matches.len(), 1);
         let indices = &*matches.first().unwrap().indices;
         assert_eq!(indices, &[0, 3, 4]);
     }
@@ -282,6 +294,7 @@ mod tests {
         println!("{prog}");
 
         let matches = prog.exec(line);
+        assert_eq!(matches.len(), 1);
         let indices = &*matches.first().unwrap().indices;
         assert_eq!(indices, &[0, 2, 3]);
     }
@@ -295,6 +308,7 @@ mod tests {
         println!("{prog}");
 
         let matches = prog.exec(line);
+        assert_eq!(matches.len(), 1);
         let indices = &*matches.first().unwrap().indices;
         assert_eq!(indices, &[0, 2]);
     }

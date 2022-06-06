@@ -1,6 +1,8 @@
 //! The [`Engine`] trait defines a specific set of matching behaviors.
 
-pub trait Engine<T>: Clone {
+use std::hash::Hash;
+
+pub trait Engine<T>: Hash + Clone {
     /// The initialization argument type for the engine.
     type Init;
     /// The type for the [`Consume`](super::program::Instr::Consume) instruction.
