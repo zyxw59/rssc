@@ -214,13 +214,10 @@ impl<T, E: Engine<T>> Program<T, E> {
 
         // now iterate over remaining threads, to check for pending match instructions
         for th in &mut curr {
-            match self[th.pc] {
-                Instr::Match => {
-                    saves.push(th.engine);
-                }
-                // anything else is a failed match
-                _ => {}
+            if let Instr::Match = self[th.pc] {
+                saves.push(th.engine);
             }
+            // anything else is a failed match
         }
 
         // return the list of saved locations
