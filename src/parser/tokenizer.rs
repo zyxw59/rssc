@@ -18,13 +18,13 @@ use crate::re::{
 };
 
 #[derive(Clone, Debug)]
-pub struct TokenizerEngine {
+struct TokenizerEngine {
     indices: Vec<usize>,
 }
 
 impl Engine<char> for TokenizerEngine {
     type Init = ();
-    type Consume = TokenizerExtension;
+    type Consume = TokenizerConsume;
     type Peek = ();
 
     fn initialize((): &Self::Init) -> Self {
@@ -35,12 +35,12 @@ impl Engine<char> for TokenizerEngine {
 
     fn consume(&mut self, args: &Self::Consume, _index: usize, tok: &char) -> bool {
         match args {
-            TokenizerExtension::Char(ch) => tok == ch,
-            TokenizerExtension::Any => true,
-            TokenizerExtension::ControlChar => Token::is_control_char(*tok),
-            TokenizerExtension::BaseChar => !is_modifier(*tok),
-            TokenizerExtension::CombiningChar => is_modifier(*tok) && !is_combining_double(*tok),
-            TokenizerExtension::CombiningDouble => is_combining_double(*tok),
+            TokenizerConsume::Char(ch) => tok == ch,
+            TokenizerConsume::Any => true,
+            TokenizerConsume::ControlChar => Token::is_control_char(*tok),
+            TokenizerConsume::BaseChar => !is_modifier(*tok),
+            TokenizerConsume::CombiningChar => is_modifier(*tok) && !is_combining_double(*tok),
+            TokenizerConsume::CombiningDouble => is_combining_double(*tok),
         }
     }
 
@@ -61,7 +61,7 @@ impl Hash for TokenizerEngine {
 
 /// A `RegexExtension` for the tokenizer.
 #[derive(Clone, Copy, Debug)]
-pub enum TokenizerExtension {
+enum TokenizerConsume {
     /// Matches a single char.
     Char(char),
     /// Matches any character.
@@ -76,14 +76,14 @@ pub enum TokenizerExtension {
     CombiningDouble,
 }
 
-impl fmt::Display for TokenizerExtension {
+impl fmt::Display for TokenizerConsume {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
 }
 
 /// Construct a regex program to split a line into segments.
-pub fn matcher(segments: &SegmentMap) -> Program<char, TokenizerEngine> {
+fn matcher(segments: &SegmentMap) -> Program<char, TokenizerEngine> {
     // the instructions
     // save instruction, to be performed at the end of each token
     let mut prog = vec![Instr::Peek(())];
@@ -91,24 +91,24 @@ pub fn matcher(segments: &SegmentMap) -> Program<char, TokenizerEngine> {
     // match a control character
     let mut split = prog.len();
     prog.push(Instr::Split(0));
-    prog.push(Instr::Consume(TokenizerExtension::ControlChar));
+    prog.push(Instr::Consume(TokenizerConsume::ControlChar));
     prog.push(Instr::Jump(0));
     // match a backslash-escaped character, which is considered as a single base character
     prog[split] = Instr::Split(prog.len());
     split = prog.len();
     prog.push(Instr::Split(0));
-    prog.push(Instr::Consume(TokenizerExtension::Char('\\')));
+    prog.push(Instr::Consume(TokenizerConsume::Char('\\')));
     prog.push(Instr::Split(split + 5));
-    prog.push(Instr::Consume(TokenizerExtension::Char('\n')));
+    prog.push(Instr::Consume(TokenizerConsume::Char('\n')));
     prog.push(Instr::Jump(0));
-    prog.push(Instr::Consume(TokenizerExtension::Any));
+    prog.push(Instr::Consume(TokenizerConsume::Any));
     let escape_jump = prog.len();
     prog.push(Instr::Jump(0));
     // match a newline, and therefore the end of the string
     prog[split] = Instr::Split(prog.len());
     split = prog.len();
     prog.push(Instr::Split(0));
-    prog.push(Instr::Consume(TokenizerExtension::Char('\n')));
+    prog.push(Instr::Consume(TokenizerConsume::Char('\n')));
     prog[escape_jump - 2] = Instr::Jump(prog.len());
     prog.push(Instr::Peek(()));
     prog.push(Instr::Match);
@@ -118,7 +118,7 @@ pub fn matcher(segments: &SegmentMap) -> Program<char, TokenizerEngine> {
         split = prog.len();
         prog.push(Instr::Split(0));
         for c in seg {
-            prog.push(Instr::Consume(TokenizerExtension::Char(*c)));
+            prog.push(Instr::Consume(TokenizerConsume::Char(*c)));
         }
         prog.push(Instr::Jump(0));
     }
@@ -126,12 +126,12 @@ pub fn matcher(segments: &SegmentMap) -> Program<char, TokenizerEngine> {
     let base = prog.len();
     prog[escape_jump] = Instr::Jump(base + 1);
     prog[split] = Instr::Split(base);
-    prog.push(Instr::Consume(TokenizerExtension::BaseChar));
+    prog.push(Instr::Consume(TokenizerConsume::BaseChar));
     prog.push(Instr::Split(base + 4));
-    prog.push(Instr::Consume(TokenizerExtension::CombiningChar));
+    prog.push(Instr::Consume(TokenizerConsume::CombiningChar));
     prog.push(Instr::Jump(base + 1));
     prog.push(Instr::Split(0));
-    prog.push(Instr::Consume(TokenizerExtension::CombiningDouble));
+    prog.push(Instr::Consume(TokenizerConsume::CombiningDouble));
     prog.push(Instr::Jump(base));
 
     Program::new(prog, ())
