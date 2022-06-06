@@ -4,6 +4,8 @@ use std::fmt;
 
 use crate::{category::Ident, token::Token};
 
+pub mod re;
+
 /// A single sound change rule.
 pub struct Rule {
     /// The pattern to replace.
