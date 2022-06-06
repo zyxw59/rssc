@@ -4,7 +4,7 @@ use std::cmp;
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use crate::{re::ast::Regex, token::Token};
+use crate::token::Token;
 
 /// A category name.
 pub type Ident = Vec<Token>;
@@ -14,8 +14,8 @@ pub type Ident = Vec<Token>;
 pub struct Category {
     /// The elements of the category
     elements: Vec<Element>,
-    /// A regular expression matching the category.
-    pattern: Regex<Token>,
+    // /// A regular expression matching the category.
+    // pattern: Regex<Token>,
     /// A map from elements to the indices of those elements. Note that an element might correspond
     /// to multiple indices.
     indices: HashMap<Vec<Token>, Vec<usize>>,
@@ -64,22 +64,22 @@ impl Category {
                 }
             }
         }
-        let pattern = if can_use_set {
-            Regex::Set(set)
-        } else {
-            Regex::Alternate(
-                sorted
-                    .iter()
-                    .rev()
-                    .filter_map(|x| elements[x.value].string_or_none())
-                    .cloned()
-                    .map(Regex::Literal)
-                    .collect(),
-            )
-        };
+        // let pattern = if can_use_set {
+        //     Regex::Set(set)
+        // } else {
+        //     Regex::Alternate(
+        //         sorted
+        //             .iter()
+        //             .rev()
+        //             .filter_map(|x| elements[x.value].string_or_none())
+        //             .cloned()
+        //             .map(Regex::Literal)
+        //             .collect(),
+        //     )
+        // };
         Category {
             elements,
-            pattern,
+            // pattern,
             indices,
             name,
         }
