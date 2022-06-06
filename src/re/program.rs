@@ -1,3 +1,4 @@
+use std::fmt;
 use std::mem;
 use std::ops::Index;
 
@@ -7,7 +8,8 @@ use super::engine::Engine;
 pub type InstrPtr = usize;
 
 /// A single instruction
-#[derive(Debug)]
+#[derive(derivative::Derivative)]
+#[derivative(Debug(bound = "E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
 pub enum Instr<T, E: Engine<T>> {
     /// Splits into two states, preferring not to jump. Used to implement alternations and
     /// quantifiers
@@ -119,11 +121,26 @@ impl<'a, E> IntoIterator for &'a mut ThreadList<E> {
 }
 
 /// A program for the VM
+#[derive(derivative::Derivative)]
+#[derivative(Debug(bound = "E::Init: fmt::Debug, E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
 pub struct Program<T, E: Engine<T>> {
     /// List of instructions. `InstrPtr`s are indexed into this vector
     prog: Vec<Instr<T, E>>,
     /// Initialization arguments for the engine
     init: E::Init,
+}
+
+impl<T, E: Engine<T>> fmt::Display for Program<T, E>
+where
+    E::Peek: fmt::Debug,
+    E::Consume: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (i, instr) in self.prog.iter().enumerate() {
+            writeln!(f, "{i:02X}: {instr:?}")?;
+        }
+        Ok(())
+    }
 }
 
 impl<T, E: Engine<T>> Program<T, E> {
