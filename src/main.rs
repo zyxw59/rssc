@@ -1,10 +1,7 @@
-#![allow(dead_code)]
-
 pub mod ast;
 pub mod category;
 pub mod parser;
 pub mod re;
-pub mod segment;
 pub mod token;
 pub mod unicode;
 
