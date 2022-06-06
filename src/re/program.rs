@@ -2,7 +2,7 @@ use std::fmt;
 use std::mem;
 use std::ops::Index;
 
-use super::engine::Engine;
+use super::{engine::Engine, prune::PruneList};
 
 /// Type for indexing into a program
 pub type InstrPtr = usize;
@@ -69,37 +69,41 @@ impl<E> ThreadList<E> {
         in_idx: usize,
         next_tok: Option<&T>,
         prog: &Program<T, E>,
+        prune_list: &mut PruneList,
         mut engine: E,
     ) where
         E: Engine<T>,
     {
-        // don't check if there's already a thread with this `pc` on the list, because we want to
-        // keep alternate paths alive, in case they produce different submatch values.
+        // prune this thread if necessary
+        if prune_list.insert(pc, &engine, in_idx) {
+            return;
+        }
+
         match prog[pc] {
             Instr::Split(split) => {
                 // call `add_thread` recursively
                 // branch with no jump is higher priority
                 // clone the `engine` so we can use it again in the second branch
-                self.add_thread(pc + 1, in_idx, next_tok, prog, engine.clone());
-                self.add_thread(split, in_idx, next_tok, prog, engine);
+                self.add_thread(pc + 1, in_idx, next_tok, prog, prune_list, engine.clone());
+                self.add_thread(split, in_idx, next_tok, prog, prune_list, engine);
             }
             Instr::JSplit(split) => {
                 // call `add_thread` recursively
                 // branch with jump is higher priority
                 // clone the `engine` so we can use it again in the second branch
-                self.add_thread(split, in_idx, next_tok, prog, engine.clone());
-                self.add_thread(pc + 1, in_idx, next_tok, prog, engine);
+                self.add_thread(split, in_idx, next_tok, prog, prune_list, engine.clone());
+                self.add_thread(pc + 1, in_idx, next_tok, prog, prune_list, engine);
             }
             Instr::Jump(jump) => {
                 // call `add_thread` recursively
                 // jump to specified pc
-                self.add_thread(jump, in_idx, next_tok, prog, engine);
+                self.add_thread(jump, in_idx, next_tok, prog, prune_list, engine);
             }
             Instr::Peek(ref args) => {
                 // check if the engine matches here
                 if engine.peek(args, in_idx, next_tok) {
                     // and recursively add next instruction
-                    self.add_thread(pc + 1, in_idx, next_tok, prog, engine);
+                    self.add_thread(pc + 1, in_idx, next_tok, prog, prune_list, engine);
                 }
             }
             Instr::Reject => {} // do nothing, this thread is dead
@@ -165,6 +169,7 @@ impl<T, E: Engine<T>> Program<T, E> {
         let mut next = ThreadList::new(self.prog.len());
 
         let mut saves = Vec::new();
+        let mut prune_list = PruneList::new(self.prog.len());
 
         // start initial thread at start instruction
         curr.add_thread(
@@ -172,6 +177,7 @@ impl<T, E: Engine<T>> Program<T, E> {
             0,
             input.peek().map(|(_i, tok)| tok),
             self,
+            &mut prune_list,
             E::initialize(&self.init),
         );
 
@@ -188,6 +194,7 @@ impl<T, E: Engine<T>> Program<T, E> {
                                 i + 1,
                                 input.peek().map(|(_i, tok)| tok),
                                 self,
+                                &mut prune_list,
                                 th.engine,
                             );
                         }

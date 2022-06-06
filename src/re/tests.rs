@@ -1,6 +1,6 @@
 use super::{engine::Engine, program};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct TestEngine {
     saves: Vec<Option<usize>>,
     is_word: bool,
