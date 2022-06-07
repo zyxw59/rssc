@@ -13,6 +13,8 @@ use crate::{
 
 /// A category name.
 pub type Ident = Vec<Token>;
+/// An element of a category. `None` represents a gap in the category.
+pub type Element = Option<Vec<Token>>;
 
 /// A set of sounds to be used in patterns and replacements
 #[derive(Debug)]
@@ -40,7 +42,7 @@ impl Category {
         let mut single_map = HashMap::with_capacity(n);
         let mut can_use_single_map = true;
         for (i, el) in elements.iter().enumerate() {
-            if let Element::String(el) = el {
+            if let Some(el) = el {
                 if let &[tok] = &el[..] {
                     if single_set.insert(tok) {
                         // first time seeing this element
@@ -148,15 +150,6 @@ impl Category {
         let after_category_match = instruction_list.len();
         instruction_list[jump_instr] = Instr::Jump(after_category_match);
     }
-}
-
-/// An element of a category.
-#[derive(Clone, Debug)]
-pub enum Element {
-    /// A null element.
-    Zero,
-    /// A string of tokens.
-    String(Vec<Token>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
