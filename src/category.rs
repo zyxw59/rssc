@@ -68,7 +68,7 @@ impl Category {
         }
     }
 
-    pub fn consuming_matcher(&self, instruction_list: &mut Vec<Instr<Token, Engine>>, slot: usize) {
+    pub fn capturing_matcher(&self, instruction_list: &mut Vec<Instr<Token, Engine>>, slot: usize) {
         let jump_instr = instruction_list.len();
         // the actual destination of this jump will be filled in at the end of the function
         instruction_list.push(Instr::Jump(0));
@@ -76,6 +76,7 @@ impl Category {
         for (el, indices) in self.indices.iter().rev() {
             if self.single_map.is_some() && el.0.len() == 1 {
                 // single-length elements to be handled with a single Consume::Category instruction
+                // we can break here because the elements are already sorted by length
                 break;
             }
             if let Some((&last, rest)) = indices.split_last() {
@@ -117,6 +118,33 @@ impl Category {
         // this point in the program. since there are no more elements to match, we should put a
         // reject here, ending that thread.
         instruction_list.push(Instr::Reject);
+        let after_category_match = instruction_list.len();
+        instruction_list[jump_instr] = Instr::Jump(after_category_match);
+    }
+
+    pub fn non_capturing_matcher(&self, instruction_list: &mut Vec<Instr<Token, Engine>>) {
+        let jump_instr = instruction_list.len();
+        // the actual destination of this jump will be filled in at the end of the function
+        instruction_list.push(Instr::Jump(0));
+        // match longer elements first
+        for (el, _indices) in self.indices.iter().rev() {
+            if el.0.len() == 1 {
+                // single-length elements to be handled with a single Consume::Set instruction
+                // we can break here because the elements are already sorted by length
+                break;
+            }
+            // element match is 1 instruction per token, plus 1 for the jump to after the category
+            let next_element_start = instruction_list.len() + el.0.len() + 1;
+            instruction_list.push(Instr::Split(next_element_start));
+            instruction_list.extend(el.0.iter().map(|&tok| Instr::Consume(Consume::Token(tok))));
+            instruction_list.push(Instr::Jump(jump_instr));
+            debug_assert_eq!(instruction_list.len(), next_element_start);
+        }
+        // handle single-length elements with a `Consume::Set`
+        instruction_list.extend([
+            Instr::Consume(Consume::Set(self.single_set.clone())),
+            Instr::Jump(jump_instr),
+        ]);
         let after_category_match = instruction_list.len();
         instruction_list[jump_instr] = Instr::Jump(after_category_match);
     }
