@@ -7,7 +7,7 @@ pub mod segment;
 pub use self::segment::{Segment, SegmentMap};
 
 macro_rules! enum_const {
-    ( $(#[$attr:meta])* $main:ident ($int:ty) { $($value:pat => $id:ident),* $(,)* } ) => {
+    ( $(#[$attr:meta])* $main:ident ($int:ty) { $($value:literal => $id:ident),* $(,)* } ) => {
         enum _Constants {
             $( $id, )*
         }
@@ -21,7 +21,7 @@ macro_rules! enum_const {
 
             /// Attempts to generate a value corresponding to the given `u8` if it is one of the
             /// enumerated `u8`s, or `None` otherwise.
-            fn try_enum(c: u8) -> Option<$main> {
+            fn try_enum(c: u8) -> Option<Self> {
                 match c {
                     $( $value => Some($main::$id), )*
                     _ => None,
@@ -33,6 +33,15 @@ macro_rules! enum_const {
                 match c {
                     $( $value => true, )*
                     _ => false,
+                }
+            }
+
+            /// Returns the value as a `u8` if it is an enumerated value, or the original value
+            /// otherwise.
+            fn as_enumerated(self) -> Result<u8, Self> {
+                match self {
+                    $( $main::$id => Ok($value), )*
+                    _ => Err(self),
                 }
             }
         }
@@ -158,8 +167,32 @@ impl Add<u16> for Token {
     }
 }
 
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Ok(enumerated) = self.as_enumerated() {
+            write!(f, "{}", enumerated as char)
+        } else {
+            match self.0 {
+                x @ 0..=0x7F if Self::is_enumerated(x as u8) => write!(f, "\\{}", x as u8 as char),
+                x @ 0..=0x7F => write!(f, "{}", x as u8 as char),
+                x @ 0x80..=0xFF => write!(f, "\\x{x:02x}"),
+                x => write!(f, "\\u{x:04x}"),
+            }
+        }
+    }
+}
+
 impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Token({:#X})", self.0)
+        if let Ok(enumerated) = self.as_enumerated() {
+            write!(f, "{:?}", enumerated as char)
+        } else {
+            match self.0 {
+                x @ 0..=0x7F if Self::is_enumerated(x as u8) => write!(f, "'\\{}'", x as u8 as char),
+                x @ 0..=0x7F => write!(f, "{:?}", x as u8 as char),
+                x @ 0x80..=0xFF => write!(f, "'\\x{x:02x}'"),
+                x => write!(f, "'\\u{x:04x}'"),
+            }
+        }
     }
 }
