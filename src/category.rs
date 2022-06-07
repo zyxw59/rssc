@@ -71,6 +71,9 @@ impl Category {
     }
 
     pub fn capturing_matcher(&self, instruction_list: &mut Vec<Instr<Token, Engine>>, slot: usize) {
+        // skip over the jump instruction
+        let start_of_category = instruction_list.len() + 2;
+        instruction_list.push(Instr::Jump(start_of_category));
         let jump_instr = instruction_list.len();
         // the actual destination of this jump will be filled in at the end of the function
         instruction_list.push(Instr::Jump(0));
@@ -167,5 +170,51 @@ impl<T: cmp::Ord> cmp::Ord for SortByLen<T> {
 impl<T: cmp::Ord> cmp::PartialOrd for SortByLen<T> {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{re::program::Program, token::Token};
+
+    use super::Category;
+
+    #[test]
+    fn simple_category() {
+        let elements = vec![
+            Some(vec![Token::try_from_u8(b'm').unwrap()]),
+            Some(vec![Token::try_from_u8(b'n').unwrap()]),
+            Some(vec![
+                Token::try_from_u8(b'g').unwrap(),
+                Token::try_from_u8(b'n').unwrap(),
+            ]),
+            Some(vec![
+                Token::try_from_u8(b'n').unwrap(),
+                Token::try_from_u8(b'g').unwrap(),
+            ]),
+        ];
+        let name = vec![Token::try_from_u8(b'N').unwrap()];
+
+        let category = Category::new(name, elements);
+
+        let mut instructions = Vec::new();
+        category.capturing_matcher(&mut instructions, 0);
+        category.capturing_matcher(&mut instructions, 1);
+        let program = Program::new(instructions, Default::default());
+        println!("{}", program);
+
+        let test_string = vec![
+            Token::try_from_u8(b'n').unwrap(),
+            Token::try_from_u8(b'g').unwrap(),
+            Token::try_from_u8(b'n').unwrap(),
+        ];
+
+        let matches = program.exec(test_string);
+        let indices = matches
+            .into_iter()
+            .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+
+        assert_eq!(indices, &[&[3, 1], &[1, 2]]);
     }
 }

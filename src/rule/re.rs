@@ -10,7 +10,7 @@ pub struct Engine {
     /// Whether the previous token was a whitespace token.
     is_whitespace: bool,
     /// Matched category indices.
-    category_indices: CategoryIndices,
+    pub category_indices: CategoryIndices,
 }
 
 impl engine::Engine<Token> for Engine {
@@ -55,7 +55,7 @@ impl engine::Engine<Token> for Engine {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Default, Hash)]
 pub struct CategoryIndices(pub BTreeMap<usize, usize>);
 
 impl CategoryIndices {
@@ -72,6 +72,7 @@ impl CategoryIndices {
     }
 }
 
+#[derive(Debug)]
 pub enum Consume {
     /// Matches any token
     Any,
@@ -92,6 +93,7 @@ pub enum Consume {
     },
 }
 
+#[derive(Debug)]
 pub enum Peek {
     /// Matches if the current position is at a word boundary.
     WordBoundary,

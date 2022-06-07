@@ -236,6 +236,11 @@ impl<T, E: Engine<T>> Index<InstrPtr> for Program<T, E> {
     type Output = Instr<T, E>;
 
     fn index(&self, idx: InstrPtr) -> &Instr<T, E> {
-        self.prog.index(idx)
+        // allow "one-past-the-end" jumps, resulting in a successful match
+        if idx == self.prog.len() {
+            &Instr::Match
+        } else {
+            self.prog.index(idx)
+        }
     }
 }
