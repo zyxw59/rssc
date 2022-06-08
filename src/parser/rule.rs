@@ -4,6 +4,7 @@ use crate::{
     category::Ident,
     rule::{Category, Environment, Pattern, Repeater, Replace, ReplaceTok, Rule, Search},
     token::Token,
+    utils::BooleanExpr,
 };
 
 struct Parser<I: Iterator>(Peekable<I>, usize);
@@ -83,10 +84,10 @@ where
             Some(Token::Exclam) => {
                 self.skip_whitespace();
                 // negative environment
-                self.parse_environment().map(Box::new).map(Environment::Not)
+                self.parse_environment().map(BooleanExpr::not)
             }
             Some(tok) => Err(Error::Token(self.index() - 1, tok)),
-            None => Ok(Environment::Everywhere),
+            None => Ok(BooleanExpr::True),
         }?;
         self.skip_whitespace();
         if let Some(tok) = self.next() {
@@ -121,15 +122,16 @@ where
     }
 
     /// Parses an environment for a rule.
-    fn parse_environment(&mut self) -> Result<Environment, Error> {
+    fn parse_environment(&mut self) -> Result<BooleanExpr<Environment>, Error> {
         self.skip_whitespace();
         match self.peek() {
             Some(&Token::And) => {
                 self.next();
                 match self.next() {
-                    Some(Token::OpenParen) => {
-                        first_or_else(self.parse_environment_list()?, Environment::And)
-                    }
+                    Some(Token::OpenParen) => Ok(first_or_else(
+                        self.parse_environment_list()?,
+                        BooleanExpr::And,
+                    )),
                     Some(tok) => Err(Error::Token(self.index() - 1, tok)),
                     None => Err(Error::EndOfInput),
                 }
@@ -137,16 +139,17 @@ where
             Some(&Token::Pipe) => {
                 self.next();
                 match self.next() {
-                    Some(Token::OpenParen) => {
-                        first_or_else(self.parse_environment_list()?, Environment::Or)
-                    }
+                    Some(Token::OpenParen) => Ok(first_or_else(
+                        self.parse_environment_list()?,
+                        BooleanExpr::Or,
+                    )),
                     Some(tok) => Err(Error::Token(self.index() - 1, tok)),
                     None => Err(Error::EndOfInput),
                 }
             }
             Some(&Token::Exclam) => {
                 self.next();
-                self.parse_environment().map(Box::new).map(Environment::Not)
+                self.parse_environment().map(BooleanExpr::not)
             }
             Some(_) => {
                 let before = self.parse_regex()?;
@@ -159,16 +162,16 @@ where
                     Some(tok) => Err(Error::Token(self.index() - 1, tok)),
                     None => Err(Error::EndOfInput),
                 }?;
-                Ok(Environment::Pattern(before, after))
+                Ok(BooleanExpr::Value(Environment { before, after }))
             }
-            None => Ok(Environment::Everywhere),
+            None => Ok(BooleanExpr::True),
         }
     }
 
     /// Parses a list of environments until a close paren (that isn't part of a regex).
     ///
     /// Assumes the open paren has already been popped. This pops the final close paren.
-    fn parse_environment_list(&mut self) -> Result<Vec<Environment>, Error> {
+    fn parse_environment_list(&mut self) -> Result<Vec<BooleanExpr<Environment>>, Error> {
         let mut exprs = Vec::new();
         loop {
             self.skip_whitespace();
@@ -191,7 +194,7 @@ where
             self.next();
             terms.push(self.parse_term()?);
         }
-        first_or_else(terms, Pattern::Alternate)
+        Ok(first_or_else(terms, Pattern::Alternate))
     }
 
     /// Parses a term of a regular expression, consisting of a string of atoms, possibly with
@@ -220,7 +223,7 @@ where
                 }),
             }
         }
-        first_or_else(elems, Pattern::Concat)
+        Ok(first_or_else(elems, Pattern::Concat))
     }
 
     /// Parses a single atom of a regular expression.
@@ -362,14 +365,14 @@ where
     }
 }
 
-fn first_or_else<E, F, T>(vec: Vec<T>, or_else: F) -> Result<T, E>
+fn first_or_else<F, T>(mut vec: Vec<T>, or_else: F) -> T
 where
     F: FnOnce(Vec<T>) -> T,
 {
     if vec.len() == 1 {
-        vec.into_iter().next().ok_or_else(|| unreachable!())
+        vec.pop().unwrap()
     } else {
-        Ok(or_else(vec))
+        or_else(vec)
     }
 }
 
@@ -628,10 +631,10 @@ mod tests {
         let result = parser.parse_environment();
         assert_eq!(
             result,
-            Ok(Environment::Pattern(
-                Pattern::Literal(a),
-                Pattern::Literal(b)
-            ))
+            Ok(BooleanExpr::Value(Environment {
+                before: Pattern::Literal(a),
+                after: Pattern::Literal(b),
+            }))
         );
     }
 
@@ -657,9 +660,15 @@ mod tests {
         let result = parser.parse_environment();
         assert_eq!(
             result,
-            Ok(Environment::Or(vec![
-                Environment::Pattern(Pattern::Literal(a), Pattern::Literal(b)),
-                Environment::Pattern(Pattern::Literal(c), Pattern::Literal(d)),
+            Ok(BooleanExpr::Or(vec![
+                BooleanExpr::Value(Environment {
+                    before: Pattern::Literal(a),
+                    after: Pattern::Literal(b)
+                }),
+                BooleanExpr::Value(Environment {
+                    before: Pattern::Literal(c),
+                    after: Pattern::Literal(d)
+                }),
             ]))
         );
     }
@@ -690,12 +699,21 @@ mod tests {
         let result = parser.parse_environment();
         assert_eq!(
             result,
-            Ok(Environment::Or(vec![
-                Environment::And(vec![
-                    Environment::Pattern(Pattern::Literal(a), Pattern::Concat(vec![])),
-                    Environment::Pattern(Pattern::Concat(vec![]), Pattern::Literal(b)),
+            Ok(BooleanExpr::Or(vec![
+                BooleanExpr::And(vec![
+                    BooleanExpr::Value(Environment {
+                        before: Pattern::Literal(a),
+                        after: Pattern::Concat(vec![])
+                    }),
+                    BooleanExpr::Value(Environment {
+                        before: Pattern::Concat(vec![]),
+                        after: Pattern::Literal(b)
+                    }),
                 ]),
-                Environment::Pattern(Pattern::Literal(c), Pattern::Literal(d)),
+                BooleanExpr::Value(Environment {
+                    before: Pattern::Literal(c),
+                    after: Pattern::Literal(d)
+                }),
             ]))
         );
     }

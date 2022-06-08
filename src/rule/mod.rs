@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use crate::{category::Ident, token::Token};
+use crate::{category::Ident, token::Token, utils::BooleanExpr};
 
 pub mod re;
 
@@ -13,7 +13,7 @@ pub struct Rule {
     /// The replacement.
     pub replace: Replace,
     /// The environment in which to apply the rule.
-    pub environment: Environment,
+    pub environment: BooleanExpr<Environment>,
 }
 
 /// The pattern to replace in a sound change rule.
@@ -35,18 +35,9 @@ pub enum ReplaceTok {
 
 /// An environment for applying a rule.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Environment {
-    /// True iff _any_ of the expressions are true.
-    Or(Vec<Environment>),
-    /// True iff _all_ of the expressions are true.
-    And(Vec<Environment>),
-    /// True iff the expression is false.
-    Not(Box<Environment>),
-    /// True iff the first pattern matches before the match and the second pattern matches after
-    /// the match.
-    Pattern(Pattern, Pattern),
-    /// Always true.
-    Everywhere,
+pub struct Environment {
+    pub before: Pattern,
+    pub after: Pattern,
 }
 
 /// A regular expression.
