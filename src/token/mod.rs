@@ -188,7 +188,9 @@ impl fmt::Debug for Token {
             write!(f, "{:?}", enumerated as char)
         } else {
             match self.0 {
-                x @ 0..=0x7F if Self::is_enumerated(x as u8) => write!(f, "'\\{}'", x as u8 as char),
+                x @ 0..=0x7F if Self::is_enumerated(x as u8) => {
+                    write!(f, "'\\{}'", x as u8 as char)
+                }
                 x @ 0..=0x7F => write!(f, "{:?}", x as u8 as char),
                 x @ 0x80..=0xFF => write!(f, "'\\x{x:02x}'"),
                 x => write!(f, "'\\u{x:04x}'"),
