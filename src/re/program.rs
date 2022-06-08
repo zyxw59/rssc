@@ -10,7 +10,7 @@ pub type InstrPtr = usize;
 /// A single instruction
 #[derive(derivative::Derivative)]
 #[derivative(Debug(bound = "E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
-pub enum Instr<T, E: Engine<T>> {
+pub enum Instr<E: Engine> {
     /// Splits into two states, preferring not to jump. Used to implement alternations and
     /// quantifiers
     Split(InstrPtr),
@@ -63,16 +63,16 @@ impl<E> ThreadList<E> {
     /// locations. If `pc` points to a `Jump`, `Split`, `JSplit`, or `Peek` instruction, calls
     /// `add_thread` recursively, so that the active `ThreadList` never contains pointers to those
     /// instructions.
-    fn add_thread<T>(
+    fn add_thread(
         &mut self,
         pc: InstrPtr,
         in_idx: usize,
-        next_tok: Option<&T>,
-        prog: &Program<T, E>,
+        next_tok: Option<&E::Token>,
+        prog: &Program<E>,
         prune_list: &mut PruneList,
         mut engine: E,
     ) where
-        E: Engine<T>,
+        E: Engine,
     {
         // prune this thread if necessary
         if prune_list.insert(pc, &engine, in_idx) {
@@ -127,14 +127,14 @@ impl<'a, E> IntoIterator for &'a mut ThreadList<E> {
 /// A program for the VM
 #[derive(derivative::Derivative)]
 #[derivative(Debug(bound = "E::Init: fmt::Debug, E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
-pub struct Program<T, E: Engine<T>> {
+pub struct Program<E: Engine> {
     /// List of instructions. `InstrPtr`s are indexed into this vector
-    prog: Vec<Instr<T, E>>,
+    prog: Vec<Instr<E>>,
     /// Initialization arguments for the engine
     init: E::Init,
 }
 
-impl<T, E: Engine<T>> fmt::Display for Program<T, E>
+impl<E: Engine> fmt::Display for Program<E>
 where
     E::Peek: fmt::Debug,
     E::Consume: fmt::Debug,
@@ -147,8 +147,8 @@ where
     }
 }
 
-impl<T, E: Engine<T>> Program<T, E> {
-    pub fn new(prog: Vec<Instr<T, E>>, init: E::Init) -> Program<T, E> {
+impl<E: Engine> Program<E> {
+    pub fn new(prog: Vec<Instr<E>>, init: E::Init) -> Program<E> {
         Program { prog, init }
     }
 
@@ -156,7 +156,7 @@ impl<T, E: Engine<T>> Program<T, E> {
     /// all the save locations are stored in a vector
     pub fn exec<I>(&self, input: I) -> Vec<E>
     where
-        I: IntoIterator<Item = T>,
+        I: IntoIterator<Item = E::Token>,
     {
         let mut input = input.into_iter().enumerate().peekable();
 
@@ -232,10 +232,10 @@ impl<T, E: Engine<T>> Program<T, E> {
     }
 }
 
-impl<T, E: Engine<T>> Index<InstrPtr> for Program<T, E> {
-    type Output = Instr<T, E>;
+impl<E: Engine> Index<InstrPtr> for Program<E> {
+    type Output = Instr<E>;
 
-    fn index(&self, idx: InstrPtr) -> &Instr<T, E> {
+    fn index(&self, idx: InstrPtr) -> &Instr<E> {
         // allow "one-past-the-end" jumps, resulting in a successful match
         if idx == self.prog.len() {
             &Instr::Match

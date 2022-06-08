@@ -6,9 +6,10 @@ pub struct TestEngine {
     is_word: bool,
 }
 
-impl Engine<char> for TestEngine {
+impl Engine for TestEngine {
     /// Number of save slots.
     type Init = usize;
+    type Token = char;
     type Consume = TestConsume;
     type Peek = TestPeek;
 
@@ -19,7 +20,7 @@ impl Engine<char> for TestEngine {
         }
     }
 
-    fn consume(&mut self, args: &Self::Consume, _index: usize, token: &char) -> bool {
+    fn consume(&mut self, args: &Self::Consume, _index: usize, token: &Self::Token) -> bool {
         self.is_word = !token.is_whitespace();
         match args {
             TestConsume::Any => true,
@@ -27,7 +28,7 @@ impl Engine<char> for TestEngine {
         }
     }
 
-    fn peek(&mut self, args: &Self::Peek, index: usize, token: Option<&char>) -> bool {
+    fn peek(&mut self, args: &Self::Peek, index: usize, token: Option<&Self::Token>) -> bool {
         match args {
             TestPeek::WordBoundary => token
                 .as_ref()
@@ -54,7 +55,7 @@ pub enum TestPeek {
 fn program() {
     use self::program::Instr::*;
     // /(ab?)(b?c)\b/
-    let prog: Vec<program::Instr<char, TestEngine>> = vec![
+    let prog: Vec<program::Instr<TestEngine>> = vec![
         // 0: *? quantifier
         JSplit(3),
         // 1: match a token

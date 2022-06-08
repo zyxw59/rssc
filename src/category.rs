@@ -70,7 +70,7 @@ impl Category {
         }
     }
 
-    pub fn capturing_matcher(&self, instruction_list: &mut Vec<Instr<Token, Engine>>, slot: usize) {
+    pub fn capturing_matcher(&self, instruction_list: &mut Vec<Instr<Engine>>, slot: usize) {
         // skip over the jump instruction
         let start_of_category = instruction_list.len() + 2;
         instruction_list.push(Instr::Jump(start_of_category));
@@ -127,7 +127,7 @@ impl Category {
         instruction_list[jump_instr] = Instr::Jump(after_category_match);
     }
 
-    pub fn non_capturing_matcher(&self, instruction_list: &mut Vec<Instr<Token, Engine>>) {
+    pub fn non_capturing_matcher(&self, instruction_list: &mut Vec<Instr<Engine>>) {
         let jump_instr = instruction_list.len();
         // the actual destination of this jump will be filled in at the end of the function
         instruction_list.push(Instr::Jump(0));

@@ -13,9 +13,10 @@ pub struct Engine {
     pub category_indices: CategoryIndices,
 }
 
-impl engine::Engine<Token> for Engine {
+impl engine::Engine for Engine {
     /// Any category indices which have already been matched by other parts of this rule.
     type Init = CategoryIndices;
+    type Token = Token;
     type Consume = Consume;
     type Peek = Peek;
 
@@ -27,7 +28,7 @@ impl engine::Engine<Token> for Engine {
         }
     }
 
-    fn consume(&mut self, args: &Consume, _index: usize, token: &Token) -> bool {
+    fn consume(&mut self, args: &Consume, _index: usize, token: &Self::Token) -> bool {
         self.is_whitespace = token.is_whitespace();
         match args {
             Consume::Any => true,
@@ -44,7 +45,7 @@ impl engine::Engine<Token> for Engine {
         }
     }
 
-    fn peek(&mut self, args: &Peek, _index: usize, token: Option<&Token>) -> bool {
+    fn peek(&mut self, args: &Peek, _index: usize, token: Option<&Self::Token>) -> bool {
         match *args {
             Peek::WordBoundary => {
                 // end of string is considered whitespace

@@ -22,8 +22,9 @@ struct TokenizerEngine {
     indices: Vec<usize>,
 }
 
-impl Engine<char> for TokenizerEngine {
+impl Engine for TokenizerEngine {
     type Init = ();
+    type Token = char;
     type Consume = TokenizerConsume;
     type Peek = ();
 
@@ -33,7 +34,7 @@ impl Engine<char> for TokenizerEngine {
         }
     }
 
-    fn consume(&mut self, args: &Self::Consume, _index: usize, tok: &char) -> bool {
+    fn consume(&mut self, args: &Self::Consume, _index: usize, tok: &Self::Token) -> bool {
         match args {
             TokenizerConsume::Char(ch) => tok == ch,
             TokenizerConsume::Any => true,
@@ -83,7 +84,7 @@ impl fmt::Display for TokenizerConsume {
 }
 
 /// Construct a regex program to split a line into segments.
-fn matcher(segments: &SegmentMap) -> Program<char, TokenizerEngine> {
+fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
     // the instructions
     // save instruction, to be performed at the end of each token
     let mut prog = vec![Instr::Peek(())];
@@ -147,7 +148,7 @@ pub struct Tokens<'s, R> {
     line: usize,
     token_map: Vec<Segment>,
     segment_map: &'s mut SegmentMap,
-    re: Program<char, TokenizerEngine>,
+    re: Program<TokenizerEngine>,
 }
 
 impl<'s, R: BufRead> Tokens<'s, R> {
