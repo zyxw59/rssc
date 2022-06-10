@@ -52,7 +52,7 @@ enum_const! {
     ///
     /// - Characters with special meaning in the rule file format, i.e.
     ///   - Regex control characters (`.*+?()[]|`)
-    ///   - Characters with special meaning in patterns (`#$0{}`)
+    ///   - Characters with special meaning in patterns (`#0{}`)
     ///   - Characters which delimit the parser (`=:>_/!|&\n\t `)
     ///   are mapped to the range `0x00 ..= 0x1F`.
     /// - Printable ASCII characters (and backslash-escaped control characters) are mapped to their
@@ -71,7 +71,6 @@ enum_const! {
         b']' => CloseBracket,
         b'|' => Pipe,
         b'#' => Hash,
-        b'$' => Dollar,
         b'0' => Zero,
         b'{' => OpenBrace,
         b'}' => CloseBrace,

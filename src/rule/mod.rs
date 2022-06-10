@@ -100,8 +100,6 @@ pub enum Pattern {
     Any,
     /// Matches a word boundary.
     WordBoundary,
-    /// Matches a syllable boundary.
-    SyllableBoundary,
     /// Matches an element of a category, optionally associating the index of the matched element
     /// with a slot for further selection or replacement.
     Category(Category),
@@ -120,7 +118,6 @@ impl Pattern {
             Pattern::Set(tokens) => program.push(Instr::Consume(re::Consume::Set(tokens.clone()))),
             Pattern::Any => program.push(Instr::Consume(re::Consume::Any)),
             Pattern::WordBoundary => program.push(Instr::Peek(re::Peek::WordBoundary)),
-            Pattern::SyllableBoundary => unimplemented!(),
             Pattern::Category(cat) => todo!(),
             Pattern::Repeat(pat, rep) => {
                 let split;
@@ -199,7 +196,6 @@ impl fmt::Display for Pattern {
             }
             Pattern::Any => f.write_str("."),
             Pattern::WordBoundary => f.write_str("#"),
-            Pattern::SyllableBoundary => f.write_str("$"),
             Pattern::Category(cat) => fmt::Debug::fmt(cat, f),
             Pattern::Repeat(pat, rep) => write!(f, "{pat}{rep}"),
             Pattern::Concat(v) => {

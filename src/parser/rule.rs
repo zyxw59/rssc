@@ -232,7 +232,6 @@ where
     ///
     /// - `.`, matching any character
     /// - `#`, matching a word boundary
-    /// - `$`, matching a syllable boundary
     /// - A category
     /// - A single token
     /// - A set of tokens, enclosed in `[` `]`
@@ -241,7 +240,6 @@ where
         match self.next() {
             Some(Token::Dot) => Ok(Pattern::Any),
             Some(Token::Hash) => Ok(Pattern::WordBoundary),
-            Some(Token::Dollar) => Ok(Pattern::SyllableBoundary),
             Some(Token::OpenBrace) => self.parse_category().map(Pattern::Category),
             Some(Token::OpenBracket) => self.parse_set(),
             Some(Token::OpenParen) => {
