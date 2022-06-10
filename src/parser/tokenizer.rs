@@ -25,7 +25,7 @@ struct TokenizerEngine {
 impl Engine for TokenizerEngine {
     type Init = ();
     type Token = char;
-    type Consume = TokenizerConsume;
+    type Consume = Consume;
     type Peek = ();
 
     fn initialize((): &Self::Init) -> Self {
@@ -36,12 +36,12 @@ impl Engine for TokenizerEngine {
 
     fn consume(&mut self, args: &Self::Consume, _index: usize, tok: &Self::Token) -> bool {
         match args {
-            TokenizerConsume::Char(ch) => tok == ch,
-            TokenizerConsume::Any => true,
-            TokenizerConsume::ControlChar => Token::is_control_char(*tok),
-            TokenizerConsume::BaseChar => !is_modifier(*tok),
-            TokenizerConsume::CombiningChar => is_modifier(*tok) && !is_combining_double(*tok),
-            TokenizerConsume::CombiningDouble => is_combining_double(*tok),
+            Consume::Char(ch) => tok == ch,
+            Consume::Any => true,
+            Consume::ControlChar => Token::is_control_char(*tok),
+            Consume::BaseChar => !is_modifier(*tok),
+            Consume::CombiningChar => is_modifier(*tok) && !is_combining_double(*tok),
+            Consume::CombiningDouble => is_combining_double(*tok),
         }
     }
 
@@ -62,7 +62,7 @@ impl Hash for TokenizerEngine {
 
 /// A `RegexExtension` for the tokenizer.
 #[derive(Clone, Copy, Debug)]
-enum TokenizerConsume {
+enum Consume {
     /// Matches a single char.
     Char(char),
     /// Matches any character.
@@ -77,7 +77,7 @@ enum TokenizerConsume {
     CombiningDouble,
 }
 
-impl fmt::Display for TokenizerConsume {
+impl fmt::Display for Consume {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
@@ -91,49 +91,55 @@ fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
 
     // match a control character
     let mut split = prog.len();
-    prog.push(Instr::Split(0));
-    prog.push(Instr::Consume(TokenizerConsume::ControlChar));
-    prog.push(Instr::Jump(0));
+    prog.extend([
+        Instr::Split(0), // to be set later
+        Instr::Consume(Consume::ControlChar),
+        Instr::Jump(0),
+    ]);
+    prog[split] = Instr::Split(prog.len());
     // match a backslash-escaped character, which is considered as a single base character
-    prog[split] = Instr::Split(prog.len());
     split = prog.len();
-    prog.push(Instr::Split(0));
-    prog.push(Instr::Consume(TokenizerConsume::Char('\\')));
-    prog.push(Instr::Split(split + 5));
-    prog.push(Instr::Consume(TokenizerConsume::Char('\n')));
-    prog.push(Instr::Jump(0));
-    prog.push(Instr::Consume(TokenizerConsume::Any));
-    let escape_jump = prog.len();
-    prog.push(Instr::Jump(0));
+    prog.extend([
+        Instr::Split(0), // to be set later
+        Instr::Consume(Consume::Char('\\')),
+        Instr::Split(split + 5),
+        Instr::Consume(Consume::Char('\n')),
+        Instr::Jump(split + 9), // jumps to `Peek(()); Match`
+        Instr::Consume(Consume::Any),
+        Instr::Jump(0), // to be set later
+    ]);
+    let escape_jump = prog.len() - 1;
+    prog[split] = Instr::Split(prog.len());
     // match a newline, and therefore the end of the string
-    prog[split] = Instr::Split(prog.len());
     split = prog.len();
-    prog.push(Instr::Split(0));
-    prog.push(Instr::Consume(TokenizerConsume::Char('\n')));
-    prog[escape_jump - 2] = Instr::Jump(prog.len());
-    prog.push(Instr::Peek(()));
-    prog.push(Instr::Match);
+    prog.extend([
+        Instr::Split(0), // to be set later
+        Instr::Consume(Consume::Char('\n')),
+        Instr::Peek(()),
+        Instr::Match,
+    ]);
     // match user-defined segments
     for seg in segments.iter() {
         prog[split] = Instr::Split(prog.len());
         split = prog.len();
         prog.push(Instr::Split(0));
-        for c in seg {
-            prog.push(Instr::Consume(TokenizerConsume::Char(*c)));
-        }
+        prog.extend(seg.iter().map(|&c| Instr::Consume(Consume::Char(c))));
         prog.push(Instr::Jump(0));
     }
     // match a base character followed by any number of combining characters
     let base = prog.len();
-    prog[escape_jump] = Instr::Jump(base + 1);
     prog[split] = Instr::Split(base);
-    prog.push(Instr::Consume(TokenizerConsume::BaseChar));
-    prog.push(Instr::Split(base + 4));
-    prog.push(Instr::Consume(TokenizerConsume::CombiningChar));
-    prog.push(Instr::Jump(base + 1));
-    prog.push(Instr::Split(0));
-    prog.push(Instr::Consume(TokenizerConsume::CombiningDouble));
-    prog.push(Instr::Jump(base));
+    // base character was already matched as backslash + char
+    prog[escape_jump] = Instr::Jump(base + 1);
+    prog.extend([
+        Instr::Consume(Consume::BaseChar),
+        Instr::Split(base + 4),
+        Instr::Consume(Consume::CombiningChar),
+        Instr::Jump(base + 1),
+        Instr::Split(0),
+        Instr::Consume(Consume::CombiningDouble),
+        Instr::Jump(base),
+    ]);
 
     Program::new(prog, ())
 }
