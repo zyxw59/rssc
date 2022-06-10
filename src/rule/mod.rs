@@ -2,7 +2,12 @@
 
 use std::fmt;
 
-use crate::{category::Ident, token::Token, utils::BooleanExpr};
+use crate::{
+    category::Ident,
+    re::program::{Instr, Program},
+    token::Token,
+    utils::BooleanExpr,
+};
 
 pub mod re;
 
@@ -16,10 +21,45 @@ pub struct Rule {
     pub environment: BooleanExpr<Environment>,
 }
 
+impl Rule {
+    pub fn matcher(&mut self) -> RuleMatcher {
+        self.environment.coalesce();
+        // if environment is simple, include it in the search
+        if let BooleanExpr::Value(environment) = &self.environment {
+            let mut program = Vec::new();
+            environment.before.matcher(&mut program);
+            self.search.matcher(&mut program);
+            environment.after.matcher(&mut program);
+            RuleMatcher {
+                search: Program::new(program, Default::default()),
+                environment: BooleanExpr::True,
+            }
+        } else {
+            let mut program = Vec::new();
+            self.search.matcher(&mut program);
+            let environment = self.environment.map(Environment::matcher);
+            RuleMatcher {
+                search: Program::new(program, Default::default()),
+                environment,
+            }
+        }
+    }
+}
+
 /// The pattern to replace in a sound change rule.
 pub enum Search {
     Zero,
     Pattern(Pattern),
+}
+
+impl Search {
+    fn matcher(&self, program: &mut Vec<Instr<re::Engine>>) {
+        program.push(Instr::Peek(re::Peek::ReplaceStart));
+        if let Search::Pattern(pat) = self {
+            pat.matcher(program);
+        }
+        program.push(Instr::Peek(re::Peek::ReplaceEnd));
+    }
 }
 
 /// The replacement portion of a sound change rule.
@@ -38,6 +78,15 @@ pub enum ReplaceTok {
 pub struct Environment {
     pub before: Pattern,
     pub after: Pattern,
+}
+impl Environment {
+    fn matcher(&self) -> EnvironmentMatcher {
+        let mut before = Vec::new();
+        self.before.matcher(&mut before);
+        let mut after = Vec::new();
+        self.after.matcher(&mut after);
+        EnvironmentMatcher { before, after }
+    }
 }
 
 /// A regular expression.
@@ -62,6 +111,12 @@ pub enum Pattern {
     Concat(Vec<Pattern>),
     /// Matches one of multiple patterns
     Alternate(Vec<Pattern>),
+}
+
+impl Pattern {
+    fn matcher(&self, program: &mut Vec<Instr<re::Engine>>) {
+        todo!();
+    }
 }
 
 impl fmt::Display for Pattern {
@@ -124,4 +179,14 @@ pub struct Category {
     pub name: Ident,
     /// The slot to associate the category with.
     pub number: Option<u8>,
+}
+
+pub struct RuleMatcher {
+    search: Program<re::Engine>,
+    environment: BooleanExpr<EnvironmentMatcher>,
+}
+
+struct EnvironmentMatcher {
+    before: Vec<Instr<re::Engine>>,
+    after: Vec<Instr<re::Engine>>,
 }

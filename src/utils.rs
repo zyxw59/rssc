@@ -30,6 +30,21 @@ impl<T> BooleanExpr<T> {
         }
     }
 
+    /// Applies the specified function to each sub-expression.
+    pub fn map<F, U>(&self, mut func: F) -> BooleanExpr<U>
+    where
+        F: FnMut(&T) -> U,
+    {
+        match self {
+            BooleanExpr::Value(x) => BooleanExpr::Value(func(x)),
+            BooleanExpr::And(xs) => BooleanExpr::And(xs.iter().map(|x| x.map(&mut func)).collect()),
+            BooleanExpr::Or(xs) => BooleanExpr::Or(xs.iter().map(|x| x.map(&mut func)).collect()),
+            BooleanExpr::Not(x) => x.map(func).not(),
+            BooleanExpr::True => BooleanExpr::True,
+            BooleanExpr::False => BooleanExpr::False,
+        }
+    }
+
     /// Evaluates each sub-expression using the specified function, and returns the result.
     pub fn evaluate(&self, mut func: impl FnMut(&T) -> bool) -> bool {
         match self {
@@ -66,50 +81,56 @@ impl<T> BooleanExpr<T> {
         }
     }
 
-    #[must_use = "`coalesce` produces a new `BooleanExpr`"]
-    pub fn coalesce(self) -> Self {
+    pub fn coalesce(&mut self) {
         if self.is_true() {
-            BooleanExpr::And(Vec::new())
+            *self = BooleanExpr::True;
         } else if self.is_false() {
-            BooleanExpr::Or(Vec::new())
+            *self = BooleanExpr::False;
         } else {
             match self {
                 BooleanExpr::And(xs) => {
                     let mut xs = xs
-                        .into_iter()
-                        .filter_map(|x| {
+                        .drain(..)
+                        .filter_map(|mut x| {
                             if x.is_true() {
                                 None
                             } else {
-                                Some(x.coalesce())
+                                x.coalesce();
+                                Some(x)
                             }
                         })
                         .collect::<Vec<_>>();
-                    if xs.len() == 1 {
+                    *self = if xs.len() == 1 {
                         xs.pop().unwrap()
                     } else {
                         BooleanExpr::And(xs)
-                    }
+                    };
                 }
                 BooleanExpr::Or(xs) => {
                     let mut xs = xs
-                        .into_iter()
-                        .filter_map(|x| {
+                        .drain(..)
+                        .filter_map(|mut x| {
                             if x.is_false() {
                                 None
                             } else {
-                                Some(x.coalesce())
+                                x.coalesce();
+                                Some(x)
                             }
                         })
                         .collect::<Vec<_>>();
-                    if xs.len() == 1 {
+                    *self = if xs.len() == 1 {
                         xs.pop().unwrap()
                     } else {
                         BooleanExpr::Or(xs)
                     }
                 }
-                BooleanExpr::Not(x) => x.coalesce().not(),
-                _ => self,
+                BooleanExpr::Not(_) => {
+                    // temporary, so that we can move out of `self`
+                    let this = std::mem::replace(self, BooleanExpr::False).not();
+                    *self = this;
+                    self.coalesce();
+                }
+                _ => {}
             }
         }
     }

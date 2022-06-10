@@ -11,6 +11,10 @@ pub struct Engine {
     is_whitespace: bool,
     /// Matched category indices.
     pub category_indices: CategoryIndices,
+    /// Start of the section to replace.
+    pub replace_start: Option<usize>,
+    /// End of the section to replace.
+    pub replace_end: Option<usize>,
 }
 
 impl engine::Engine for Engine {
@@ -25,6 +29,8 @@ impl engine::Engine for Engine {
             // beginning of string is considered whitespace
             is_whitespace: true,
             category_indices: category_indices.clone(),
+            replace_start: None,
+            replace_end: None,
         }
     }
 
@@ -45,8 +51,10 @@ impl engine::Engine for Engine {
         }
     }
 
-    fn peek(&mut self, args: &Peek, _index: usize, token: Option<&Self::Token>) -> bool {
+    fn peek(&mut self, args: &Peek, index: usize, token: Option<&Self::Token>) -> bool {
         match *args {
+            Peek::ReplaceStart => self.replace_start.replace(index).is_none(),
+            Peek::ReplaceEnd => self.replace_end.replace(index).is_none(),
             Peek::WordBoundary => {
                 // end of string is considered whitespace
                 self.is_whitespace ^ token.map_or(true, |&tok| tok.is_whitespace())
@@ -96,6 +104,11 @@ pub enum Consume {
 
 #[derive(Debug)]
 pub enum Peek {
+    /// Saves the start of the section to be replaced. Rejects the match if it has already been
+    /// set.
+    ReplaceStart,
+    /// Saves the end of the section to be replaced. Rejects the match if it has already been set.
+    ReplaceEnd,
     /// Matches if the current position is at a word boundary.
     WordBoundary,
     /// Saves the specified index in the specified category slot.
