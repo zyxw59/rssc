@@ -1,4 +1,4 @@
-use std::iter::Peekable;
+use std::{collections::HashSet, iter::Peekable};
 
 use crate::{
     category::Ident,
@@ -286,7 +286,7 @@ where
     ///
     /// This should be used _after_ the initial `[` has been popped.
     fn parse_set(&mut self) -> Result<Pattern, Error> {
-        let mut toks = Vec::new();
+        let mut toks = HashSet::new();
         while let Some(&tok) = self.peek() {
             if let Token::CloseBracket = tok {
                 self.next();
@@ -295,7 +295,7 @@ where
                 return Err(Error::Token(self.index() - 1, tok));
             } else {
                 self.next();
-                toks.push(tok);
+                toks.insert(tok);
             }
         }
         Err(Error::EndOfInput)
@@ -459,7 +459,7 @@ mod tests {
         let input = vec![Token::OpenBracket, a, b, c, Token::CloseBracket];
         let mut parser = Parser(input.into_iter().peekable(), 0);
         let result = parser.parse_regex();
-        assert_eq!(result, Ok(Pattern::Set(vec![a, b, c])));
+        assert_eq!(result, Ok(Pattern::Set([a, b, c].into_iter().collect())));
     }
 
     #[test]

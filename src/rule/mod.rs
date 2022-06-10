@@ -1,6 +1,6 @@
 //! Types representing the syntax of a sound change rule.
 
-use std::fmt;
+use std::{collections::HashSet, fmt};
 
 use crate::{
     category::Ident,
@@ -95,7 +95,7 @@ pub enum Pattern {
     /// Matches a literal token.
     Literal(Token),
     /// Matches one of a set of literal tokens.
-    Set(Vec<Token>),
+    Set(HashSet<Token>),
     /// Matches any single segment.
     Any,
     /// Matches a word boundary.
@@ -115,7 +115,74 @@ pub enum Pattern {
 
 impl Pattern {
     fn matcher(&self, program: &mut Program<re::Engine>) {
-        todo!();
+        match self {
+            Pattern::Literal(tok) => program.push(Instr::Consume(re::Consume::Token(*tok))),
+            Pattern::Set(tokens) => program.push(Instr::Consume(re::Consume::Set(tokens.clone()))),
+            Pattern::Any => program.push(Instr::Consume(re::Consume::Any)),
+            Pattern::WordBoundary => program.push(Instr::Peek(re::Peek::WordBoundary)),
+            Pattern::SyllableBoundary => unimplemented!(),
+            Pattern::Category(cat) => todo!(),
+            Pattern::Repeat(pat, rep) => {
+                let split;
+                match rep {
+                    Repeater::ZeroOrOne(_) => {
+                        split = program.len();
+                        program.push(Instr::Split(0)); // to be filled in later
+                        pat.matcher(program);
+                    }
+                    Repeater::ZeroOrMore(_) => {
+                        split = program.len();
+                        program.push(Instr::Split(0)); // to be filled in later
+                        pat.matcher(program);
+                        program.push(Instr::Jump(split));
+                    }
+                    Repeater::OneOrMore(_) => {
+                        let start = program.len();
+                        pat.matcher(program);
+                        split = program.len();
+                        program.push(Instr::Split(0)); // to be filled in later
+                        program.push(Instr::Jump(start));
+                    }
+                }
+                let greedy = match rep {
+                    Repeater::ZeroOrOne(greedy)
+                    | Repeater::ZeroOrMore(greedy)
+                    | Repeater::OneOrMore(greedy) => *greedy,
+                };
+                if greedy {
+                    // prefer to match the pattern
+                    program[split] = Instr::Split(program.len());
+                } else {
+                    // prefer to skip the pattern
+                    program[split] = Instr::JSplit(program.len());
+                }
+            }
+            Pattern::Concat(pats) => {
+                for pat in pats {
+                    pat.matcher(program);
+                }
+            }
+            Pattern::Alternate(pats) => {
+                if let Some((last, rest)) = pats.split_last() {
+                    // skip over the jump instruction
+                    let start_of_pattern = program.len() + 2;
+                    program.push(Instr::Jump(start_of_pattern));
+                    let jump_instr = program.len();
+                    program.push(Instr::Jump(0)); // to be filled in later
+                    for pat in rest {
+                        let split = program.len();
+                        program.push(Instr::Split(0)); // to be filled in later
+                        pat.matcher(program);
+                        program.push(Instr::Jump(jump_instr));
+                        program[split] = Instr::Split(program.len());
+                    }
+                    // last element doesn't have a `Split` before it, or a `Jump` after
+                    last.matcher(program);
+                    // end of alternates
+                    program[jump_instr] = Instr::Jump(program.len());
+                }
+            }
+        }
     }
 }
 

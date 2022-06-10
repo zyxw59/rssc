@@ -2,7 +2,7 @@
 name = "rssc"
 version = "0.1.0"
 authors = ["Emily Crandall Fleischman <emilycf@mit.edu>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 lazy_static = "1.4.0"
