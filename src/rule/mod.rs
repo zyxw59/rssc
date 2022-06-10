@@ -4,7 +4,7 @@ use std::fmt;
 
 use crate::{
     category::Ident,
-    re::program::{Instr, Program},
+    re::{Instr, Program},
     token::Token,
     utils::BooleanExpr,
 };
@@ -26,20 +26,20 @@ impl Rule {
         self.environment.coalesce();
         // if environment is simple, include it in the search
         if let BooleanExpr::Value(environment) = &self.environment {
-            let mut program = Vec::new();
-            environment.before.matcher(&mut program);
-            self.search.matcher(&mut program);
-            environment.after.matcher(&mut program);
+            let mut search = Program::new();
+            environment.before.matcher(&mut search);
+            self.search.matcher(&mut search);
+            environment.after.matcher(&mut search);
             RuleMatcher {
-                search: Program::new(program, Default::default()),
+                search,
                 environment: BooleanExpr::True,
             }
         } else {
-            let mut program = Vec::new();
-            self.search.matcher(&mut program);
+            let mut search = Program::new();
+            self.search.matcher(&mut search);
             let environment = self.environment.map(Environment::matcher);
             RuleMatcher {
-                search: Program::new(program, Default::default()),
+                search,
                 environment,
             }
         }
@@ -53,7 +53,7 @@ pub enum Search {
 }
 
 impl Search {
-    fn matcher(&self, program: &mut Vec<Instr<re::Engine>>) {
+    fn matcher(&self, program: &mut Program<re::Engine>) {
         program.push(Instr::Peek(re::Peek::ReplaceStart));
         if let Search::Pattern(pat) = self {
             pat.matcher(program);
@@ -81,9 +81,9 @@ pub struct Environment {
 }
 impl Environment {
     fn matcher(&self) -> EnvironmentMatcher {
-        let mut before = Vec::new();
+        let mut before = Program::new();
         self.before.matcher(&mut before);
-        let mut after = Vec::new();
+        let mut after = Program::new();
         self.after.matcher(&mut after);
         EnvironmentMatcher { before, after }
     }
@@ -114,7 +114,7 @@ pub enum Pattern {
 }
 
 impl Pattern {
-    fn matcher(&self, program: &mut Vec<Instr<re::Engine>>) {
+    fn matcher(&self, program: &mut Program<re::Engine>) {
         todo!();
     }
 }
@@ -187,6 +187,6 @@ pub struct RuleMatcher {
 }
 
 struct EnvironmentMatcher {
-    before: Vec<Instr<re::Engine>>,
-    after: Vec<Instr<re::Engine>>,
+    before: Program<re::Engine>,
+    after: Program<re::Engine>,
 }

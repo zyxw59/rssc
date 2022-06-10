@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    re::program::Instr,
+    re::Instr,
     rule::re::{Consume, Engine, Peek},
     token::Token,
 };
@@ -175,7 +175,7 @@ impl<T: cmp::Ord> cmp::PartialOrd for SortByLen<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{re::program::Program, token::Token};
+    use crate::{re::Program, token::Token};
 
     use super::Category;
 
@@ -197,10 +197,9 @@ mod tests {
 
         let category = Category::new(name, elements);
 
-        let mut instructions = Vec::new();
-        category.capturing_matcher(&mut instructions, 0);
-        category.capturing_matcher(&mut instructions, 1);
-        let program = Program::new(instructions, Default::default());
+        let mut program = Program::new();
+        category.capturing_matcher(&mut program, 0);
+        category.capturing_matcher(&mut program, 1);
         println!("{}", program);
 
         let test_string = vec![
@@ -209,7 +208,7 @@ mod tests {
             Token::try_from_u8(b'n').unwrap(),
         ];
 
-        let matches = program.exec(test_string);
+        let matches = program.exec(Default::default(), test_string);
         let indices = matches
             .into_iter()
             .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())

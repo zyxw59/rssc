@@ -3,17 +3,12 @@
 use std::hash::Hash;
 
 pub trait Engine: Hash + Clone {
-    /// The initialization argument type for the engine.
-    type Init;
     /// The type of token the engine operates on.
     type Token;
     /// The type for the [`Consume`](super::program::Instr::Consume) instruction.
     type Consume;
     /// The type for the [`Peek`](super::program::Instr::Peek) instruction.
     type Peek;
-
-    /// Initialize a new `Engine`
-    fn initialize(args: &Self::Init) -> Self;
 
     /// Call the [`Consume`](super::program::Instr::Consume) instruction.
     fn consume(&mut self, args: &Self::Consume, index: usize, token: &Self::Token) -> bool;

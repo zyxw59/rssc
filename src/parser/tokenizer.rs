@@ -12,27 +12,17 @@ use crate::{
     unicode::{is_combining_double, is_modifier},
 };
 
-use crate::re::{
-    engine::Engine,
-    program::{Instr, Program},
-};
+use crate::re::{Engine, Instr, Program};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct TokenizerEngine {
     indices: Vec<usize>,
 }
 
 impl Engine for TokenizerEngine {
-    type Init = ();
     type Token = char;
     type Consume = Consume;
     type Peek = ();
-
-    fn initialize((): &Self::Init) -> Self {
-        Self {
-            indices: Vec::new(),
-        }
-    }
 
     fn consume(&mut self, args: &Self::Consume, _index: usize, tok: &Self::Token) -> bool {
         match args {
@@ -86,8 +76,9 @@ impl fmt::Display for Consume {
 /// Construct a regex program to split a line into segments.
 fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
     // the instructions
+    let mut prog = Program::new();
     // save instruction, to be performed at the end of each token
-    let mut prog = vec![Instr::Peek(())];
+    prog.push(Instr::Peek(()));
 
     // match a control character
     let mut split = prog.len();
@@ -141,7 +132,7 @@ fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
         Instr::Jump(base),
     ]);
 
-    Program::new(prog, ())
+    prog
 }
 
 /// An `Iterator` that produces the tokens found in a `BufRead`.
@@ -190,7 +181,7 @@ impl<'s, R: BufRead> Tokens<'s, R> {
                 return Ok(());
             }
             // extract segment boundaries
-            let matches = self.re.exec(chars.iter().copied());
+            let matches = self.re.exec(Default::default(), chars.iter().copied());
             let saves = &matches.first().ok_or(Error::Tokenizing(self.line))?.indices;
             self.line += 1;
             for (start, end) in saves.iter().zip(saves[1..].iter()) {
@@ -272,7 +263,7 @@ mod tests {
         let prog = matcher(&segments);
         println!("{prog}");
 
-        let matches = prog.exec(line);
+        let matches = prog.exec(Default::default(), line);
         assert_eq!(matches.len(), 1);
         let indices = &*matches.first().unwrap().indices;
         assert_eq!(indices, &[0, 2, 3, 5, 6]);
@@ -286,7 +277,7 @@ mod tests {
         let prog = matcher(&segments);
         println!("{prog}");
 
-        let matches = prog.exec(line);
+        let matches = prog.exec(Default::default(), line);
         assert_eq!(matches.len(), 1);
         let indices = &*matches.first().unwrap().indices;
         assert_eq!(indices, &[0, 3, 4]);
@@ -300,7 +291,7 @@ mod tests {
         let prog = matcher(&segments);
         println!("{prog}");
 
-        let matches = prog.exec(line);
+        let matches = prog.exec(Default::default(), line);
         assert_eq!(matches.len(), 1);
         let indices = &*matches.first().unwrap().indices;
         assert_eq!(indices, &[0, 2, 3]);
@@ -314,7 +305,7 @@ mod tests {
         let prog = matcher(&segments);
         println!("{prog}");
 
-        let matches = prog.exec(line);
+        let matches = prog.exec(Default::default(), line);
         assert_eq!(matches.len(), 1);
         let indices = &*matches.first().unwrap().indices;
         assert_eq!(indices, &[0, 2]);

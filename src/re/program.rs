@@ -1,6 +1,6 @@
 use std::fmt;
 use std::mem;
-use std::ops::Index;
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use super::{engine::Engine, prune::PruneList};
 
@@ -126,12 +126,10 @@ impl<'a, E> IntoIterator for &'a mut ThreadList<E> {
 
 /// A program for the VM
 #[derive(derivative::Derivative)]
-#[derivative(Debug(bound = "E::Init: fmt::Debug, E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
+#[derivative(Debug(bound = "E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
 pub struct Program<E: Engine> {
     /// List of instructions. `InstrPtr`s are indexed into this vector
-    prog: Vec<Instr<E>>,
-    /// Initialization arguments for the engine
-    init: E::Init,
+    pub prog: Vec<Instr<E>>,
 }
 
 impl<E: Engine> fmt::Display for Program<E>
@@ -148,13 +146,13 @@ where
 }
 
 impl<E: Engine> Program<E> {
-    pub fn new(prog: Vec<Instr<E>>, init: E::Init) -> Program<E> {
-        Program { prog, init }
+    pub fn new() -> Program<E> {
+        Program { prog: Vec::new() }
     }
 
     /// Executes the program. Returns a vector of matches found. For each match, the positions of
     /// all the save locations are stored in a vector
-    pub fn exec<I>(&self, input: I) -> Vec<E>
+    pub fn exec<I>(&self, initial_state: E, input: I) -> Vec<E>
     where
         I: IntoIterator<Item = E::Token>,
     {
@@ -178,7 +176,7 @@ impl<E: Engine> Program<E> {
             input.peek().map(|(_i, tok)| tok),
             self,
             &mut prune_list,
-            E::initialize(&self.init),
+            initial_state,
         );
 
         // iterate over tokens of input string
@@ -232,6 +230,20 @@ impl<E: Engine> Program<E> {
     }
 }
 
+impl<E: Engine> Deref for Program<E> {
+    type Target = Vec<Instr<E>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.prog
+    }
+}
+
+impl<E: Engine> DerefMut for Program<E> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.prog
+    }
+}
+
 impl<E: Engine> Index<InstrPtr> for Program<E> {
     type Output = Instr<E>;
 
@@ -242,5 +254,12 @@ impl<E: Engine> Index<InstrPtr> for Program<E> {
         } else {
             self.prog.index(idx)
         }
+    }
+}
+
+impl<E: Engine> IndexMut<InstrPtr> for Program<E> {
+    fn index_mut(&mut self, idx: InstrPtr) -> &mut Instr<E> {
+        // do not allow "one-past-the-end", since that wouldn't make sense for a mutable index
+        self.prog.index_mut(idx)
     }
 }

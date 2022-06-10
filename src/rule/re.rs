@@ -2,10 +2,9 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::re::engine;
 use crate::token::Token;
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Default, Hash)]
 pub struct Engine {
     /// Whether the previous token was a whitespace token.
     is_whitespace: bool,
@@ -17,22 +16,10 @@ pub struct Engine {
     pub replace_end: Option<usize>,
 }
 
-impl engine::Engine for Engine {
-    /// Any category indices which have already been matched by other parts of this rule.
-    type Init = CategoryIndices;
+impl crate::re::Engine for Engine {
     type Token = Token;
     type Consume = Consume;
     type Peek = Peek;
-
-    fn initialize(category_indices: &Self::Init) -> Self {
-        Engine {
-            // beginning of string is considered whitespace
-            is_whitespace: true,
-            category_indices: category_indices.clone(),
-            replace_start: None,
-            replace_end: None,
-        }
-    }
 
     fn consume(&mut self, args: &Consume, _index: usize, token: &Self::Token) -> bool {
         self.is_whitespace = token.is_whitespace();
