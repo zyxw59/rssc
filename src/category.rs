@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    re::Instr,
+    re::{Instr, Program},
     rule::re::{Consume, Engine, Peek},
     token::Token,
 };
@@ -70,7 +70,12 @@ impl Category {
         }
     }
 
-    pub fn capturing_matcher(&self, instruction_list: &mut Vec<Instr<Engine>>, slot: usize) {
+    pub fn capturing_matcher(
+        &self,
+        instruction_list: &mut Program<Engine>,
+        slot: usize,
+        reverse: bool,
+    ) {
         // skip over the jump instruction
         let start_of_category = instruction_list.len() + 2;
         instruction_list.push(Instr::Jump(start_of_category));
@@ -106,8 +111,7 @@ impl Category {
                     ]);
                 }
                 instruction_list.push(Instr::Peek(Peek::Category { slot, index: last }));
-                instruction_list
-                    .extend(el.0.iter().map(|&tok| Instr::Consume(Consume::Token(tok))));
+                match_string(&el.0, instruction_list, reverse);
                 instruction_list.push(Instr::Jump(jump_instr));
                 debug_assert_eq!(instruction_list.len(), next_element_start);
             }
@@ -127,7 +131,7 @@ impl Category {
         instruction_list[jump_instr] = Instr::Jump(after_category_match);
     }
 
-    pub fn non_capturing_matcher(&self, instruction_list: &mut Vec<Instr<Engine>>) {
+    pub fn non_capturing_matcher(&self, instruction_list: &mut Program<Engine>, reverse: bool) {
         let jump_instr = instruction_list.len();
         // the actual destination of this jump will be filled in at the end of the function
         instruction_list.push(Instr::Jump(0));
@@ -141,7 +145,7 @@ impl Category {
             // element match is 1 instruction per token, plus 1 for the jump to after the category
             let next_element_start = instruction_list.len() + el.0.len() + 1;
             instruction_list.push(Instr::Split(next_element_start));
-            instruction_list.extend(el.0.iter().map(|&tok| Instr::Consume(Consume::Token(tok))));
+            match_string(&el.0, instruction_list, reverse);
             instruction_list.push(Instr::Jump(jump_instr));
             debug_assert_eq!(instruction_list.len(), next_element_start);
         }
@@ -157,6 +161,17 @@ impl Category {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SortByLen<T>(Vec<T>);
+
+fn match_string(string: &[Token], program: &mut Program<Engine>, reverse: bool) {
+    let it = string
+        .iter()
+        .map(|&tok| Instr::Consume(Consume::Token(tok)));
+    if reverse {
+        program.extend(it.rev());
+    } else {
+        program.extend(it);
+    }
+}
 
 impl<T: cmp::Ord> cmp::Ord for SortByLen<T> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
@@ -198,8 +213,8 @@ mod tests {
         let category = Category::new(name, elements);
 
         let mut program = Program::new();
-        category.capturing_matcher(&mut program, 0);
-        category.capturing_matcher(&mut program, 1);
+        category.capturing_matcher(&mut program, 0, false);
+        category.capturing_matcher(&mut program, 1, false);
         println!("{}", program);
 
         let test_string = vec![
