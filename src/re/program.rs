@@ -157,28 +157,29 @@ impl<E: Engine> Program<E> {
     where
         I: IntoIterator<Item = E::Token>,
     {
+        let mut states = vec![initial_state];
+        self.exec_multiple(&mut states, input);
+        states
+    }
+
+    pub fn exec_multiple<I>(&self, states: &mut Vec<E>, input: I)
+    where
+        I: IntoIterator<Item = E::Token>,
+    {
         let mut input = input.into_iter().enumerate().peekable();
 
-        // initialize thread lists. The number of threads should be limited by the length of the
-        // program, since each instruction either ends a thread (in the case of a `Match`, `Reject`
-        // or a failed `Peek` or `Consume` instruction), continues an existing thread (in the case
-        // of a successful `Consume`, `Jump`, or `Peek` instruction), or spawns a new thread (in
-        // the case of a `Split` or `JSplit` instruction)
-        let mut curr = ThreadList::new(self.prog.len());
-        let mut next = ThreadList::new(self.prog.len());
+        let mut curr = ThreadList::new(states.len());
+        let mut next = ThreadList::new(states.len());
 
-        let mut saves = Vec::new();
         let mut prune_list = PruneList::new(self.prog.len());
 
         // start initial thread at start instruction
-        curr.add_thread(
-            0,
-            0,
-            input.peek().map(|(_i, tok)| tok),
-            self,
-            &mut prune_list,
-            initial_state,
-        );
+        let first_tok = input.peek().map(|(_i, tok)| tok);
+        for state in states.drain(..) {
+            curr.add_thread(0, 0, first_tok, self, &mut prune_list, state);
+        }
+
+        let matches = states;
 
         // iterate over tokens of input string
         while let Some((i, tok_i)) = input.next() {
@@ -200,7 +201,7 @@ impl<E: Engine> Program<E> {
                     }
                     Instr::Match => {
                         // add the saved locations to the final list
-                        saves.push(th.engine);
+                        matches.push(th.engine);
                     }
                     // These instructions are handled in add_thread, so the current thread should
                     // never point to one of them
@@ -221,13 +222,10 @@ impl<E: Engine> Program<E> {
         // now iterate over remaining threads, to check for pending match instructions
         for th in &mut curr {
             if let Instr::Match = self[th.pc] {
-                saves.push(th.engine);
+                matches.push(th.engine);
             }
             // anything else is a failed match
         }
-
-        // return the list of saved locations
-        saves
     }
 }
 

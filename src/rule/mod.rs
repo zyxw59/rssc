@@ -1,6 +1,9 @@
 //! Types representing the syntax of a sound change rule.
 
-use std::{collections::HashSet, fmt};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt,
+};
 
 use crate::{
     category::Ident,
@@ -118,7 +121,10 @@ impl Pattern {
             Pattern::Set(tokens) => program.push(Instr::Consume(re::Consume::Set(tokens.clone()))),
             Pattern::Any => program.push(Instr::Consume(re::Consume::Any)),
             Pattern::WordBoundary => program.push(Instr::Peek(re::Peek::WordBoundary)),
-            Pattern::Category(cat) => todo!(),
+            Pattern::Category(cat) => {
+                let _ = cat;
+                todo!();
+            }
             Pattern::Repeat(pat, rep) => {
                 let split;
                 match rep {
@@ -255,7 +261,87 @@ pub struct RuleMatcher {
     environment: BooleanExpr<EnvironmentMatcher>,
 }
 
+impl RuleMatcher {
+    pub fn matches(&self, haystack: &[Token]) -> Vec<re::Engine> {
+        let states = self
+            .search
+            .exec(Default::default(), haystack.iter().copied());
+
+        let mut by_position = BTreeMap::<(usize, usize), Vec<re::Engine>>::new();
+        for state in states {
+            if let Some(position) = state.replace_indices() {
+                by_position.entry(position).or_default().push(state);
+            }
+        }
+
+        let mut matches = Vec::new();
+
+        for ((start, end), mut states) in by_position {
+            match_boolean_expr(&self.environment, start, end, &mut states, haystack);
+            matches.extend(states);
+        }
+
+        matches
+    }
+}
+
 struct EnvironmentMatcher {
     before: Program<re::Engine>,
     after: Program<re::Engine>,
+}
+
+impl EnvironmentMatcher {
+    fn match_around(
+        &self,
+        start: usize,
+        end: usize,
+        states: &mut Vec<re::Engine>,
+        string: &[Token],
+    ) {
+        self.before
+            .exec_multiple(states, string[..start].iter().rev().copied());
+        self.after
+            .exec_multiple(states, string[end..].iter().copied())
+    }
+}
+
+fn match_boolean_expr(
+    expr: &BooleanExpr<EnvironmentMatcher>,
+    start: usize,
+    end: usize,
+    matches: &mut Vec<re::Engine>,
+    string: &[Token],
+) {
+    match expr {
+        // leave `matches` intact
+        BooleanExpr::True => {}
+        BooleanExpr::False => matches.clear(),
+        BooleanExpr::Value(env) => env.match_around(start, end, matches, string),
+        BooleanExpr::And(exprs) => {
+            // match each environment in series, so each match that survives has matched every
+            // environment
+            for expr in exprs {
+                match_boolean_expr(expr, start, end, matches, string);
+            }
+        }
+        BooleanExpr::Or(exprs) => {
+            // match each environment in parallel, then take the union of all remaining matches
+            let mut new_matches = Vec::new();
+            for expr in exprs {
+                let mut matches = matches.clone();
+                match_boolean_expr(expr, start, end, &mut matches, string);
+                new_matches.extend(matches);
+            }
+            // todo: dedup `new_matches`
+            *matches = new_matches;
+        }
+        BooleanExpr::Not(expr) => {
+            matches.retain(|match_| {
+                let mut matches = vec![match_.clone()];
+                match_boolean_expr(expr, start, end, &mut matches, string);
+                // retain only if it did not match the expression
+                matches.is_empty()
+            })
+        }
+    }
 }

@@ -16,6 +16,13 @@ pub struct Engine {
     pub replace_end: Option<usize>,
 }
 
+impl Engine {
+    /// Returns the start and end indices of the replacement section if both are set.
+    pub fn replace_indices(&self) -> Option<(usize, usize)> {
+        Some((self.replace_start?, self.replace_end?))
+    }
+}
+
 impl crate::re::Engine for Engine {
     type Token = Token;
     type Consume = Consume;
