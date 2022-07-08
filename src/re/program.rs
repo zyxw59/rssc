@@ -151,8 +151,8 @@ impl<E: Engine> Program<E> {
         Program { prog: Vec::new() }
     }
 
-    /// Executes the program. Returns a vector of matches found. For each match, the positions of
-    /// all the save locations are stored in a vector
+    /// Executes the program. Returns a vector of matches found. For each match, the state of the
+    /// engine is returned.
     pub fn exec<I>(&self, initial_state: E, input: I) -> Vec<E>
     where
         I: IntoIterator<Item = E::Token>,
