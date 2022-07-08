@@ -138,8 +138,9 @@ where
     E::Consume: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let width = self.prog.len().to_string().len();
         for (i, instr) in self.prog.iter().enumerate() {
-            writeln!(f, "{i:02X}: {instr:?}")?;
+            writeln!(f, "{i:width$}: {instr:?}")?;
         }
         Ok(())
     }
