@@ -8,7 +8,7 @@ use std::{
 use indexmap::IndexSet;
 
 use crate::{
-    category::Ident,
+    category::{Categories, Ident},
     re::{Instr, Program},
     token::Token,
     utils::BooleanExpr,
@@ -27,22 +27,22 @@ pub struct Rule {
 }
 
 impl Rule {
-    pub fn matcher(&mut self) -> RuleMatcher {
+    pub fn matcher(&mut self, categories: &Categories) -> RuleMatcher {
         self.environment.coalesce();
         // if environment is simple, include it in the search
         if let BooleanExpr::Value(environment) = &self.environment {
             let mut search = Program::new();
-            environment.before.matcher(&mut search, false);
-            self.search.matcher(&mut search);
-            environment.after.matcher(&mut search, false);
+            environment.before.matcher(&mut search, categories, false);
+            self.search.matcher(&mut search, categories);
+            environment.after.matcher(&mut search, categories, false);
             RuleMatcher {
                 search,
                 environment: BooleanExpr::True,
             }
         } else {
             let mut search = Program::new();
-            self.search.matcher(&mut search);
-            let environment = self.environment.map(Environment::matcher);
+            self.search.matcher(&mut search, categories);
+            let environment = self.environment.map(|env| env.matcher(categories));
             RuleMatcher {
                 search,
                 environment,
@@ -58,10 +58,10 @@ pub enum Search {
 }
 
 impl Search {
-    fn matcher(&self, program: &mut Program<re::Engine>) {
+    fn matcher(&self, program: &mut Program<re::Engine>, categories: &Categories) {
         program.push(Instr::Peek(re::Peek::ReplaceStart));
         if let Search::Pattern(pat) = self {
-            pat.matcher(program, false);
+            pat.matcher(program, categories, false);
         }
         program.push(Instr::Peek(re::Peek::ReplaceEnd));
     }
@@ -85,11 +85,11 @@ pub struct Environment {
     pub after: Pattern,
 }
 impl Environment {
-    fn matcher(&self) -> EnvironmentMatcher {
+    fn matcher(&self, categories: &Categories) -> EnvironmentMatcher {
         let mut before = Program::new();
-        self.before.matcher(&mut before, true);
+        self.before.matcher(&mut before, categories, true);
         let mut after = Program::new();
-        self.after.matcher(&mut after, false);
+        self.after.matcher(&mut after, categories, false);
         EnvironmentMatcher { before, after }
     }
 }
@@ -117,15 +117,20 @@ pub enum Pattern {
 }
 
 impl Pattern {
-    fn matcher(&self, program: &mut Program<re::Engine>, reverse: bool) {
+    fn matcher(&self, program: &mut Program<re::Engine>, categories: &Categories, reverse: bool) {
         match self {
             Pattern::Literal(tok) => program.push(Instr::Consume(re::Consume::Token(*tok))),
             Pattern::Set(tokens) => program.push(Instr::Consume(re::Consume::Set(tokens.clone()))),
             Pattern::Any => program.push(Instr::Consume(re::Consume::Any)),
             Pattern::WordBoundary => program.push(Instr::Peek(re::Peek::WordBoundary)),
             Pattern::Category(cat) => {
-                let _ = cat;
-                todo!();
+                if let Some(category) = categories.get(&cat.name) {
+                    if let Some(slot) = cat.number {
+                        category.capturing_matcher(program, slot, reverse);
+                    } else {
+                        category.non_capturing_matcher(program, reverse);
+                    }
+                }
             }
             Pattern::Repeat(pat, rep) => {
                 let split;
@@ -133,17 +138,17 @@ impl Pattern {
                     Repeater::ZeroOrOne(_) => {
                         split = program.len();
                         program.push(Instr::Split(0)); // to be filled in later
-                        pat.matcher(program, reverse);
+                        pat.matcher(program, categories, reverse);
                     }
                     Repeater::ZeroOrMore(_) => {
                         split = program.len();
                         program.push(Instr::Split(0)); // to be filled in later
-                        pat.matcher(program, reverse);
+                        pat.matcher(program, categories, reverse);
                         program.push(Instr::Jump(split));
                     }
                     Repeater::OneOrMore(_) => {
                         let start = program.len();
-                        pat.matcher(program, reverse);
+                        pat.matcher(program, categories, reverse);
                         split = program.len();
                         program.push(Instr::Split(0)); // to be filled in later
                         program.push(Instr::Jump(start));
@@ -165,11 +170,11 @@ impl Pattern {
             Pattern::Concat(pats) => {
                 if reverse {
                     for pat in pats.iter().rev() {
-                        pat.matcher(program, reverse);
+                        pat.matcher(program, categories, reverse);
                     }
                 } else {
                     for pat in pats {
-                        pat.matcher(program, reverse);
+                        pat.matcher(program, categories, reverse);
                     }
                 }
             }
@@ -183,12 +188,12 @@ impl Pattern {
                     for pat in rest {
                         let split = program.len();
                         program.push(Instr::Split(0)); // to be filled in later
-                        pat.matcher(program, reverse);
+                        pat.matcher(program, categories, reverse);
                         program.push(Instr::Jump(jump_instr));
                         program[split] = Instr::Split(program.len());
                     }
                     // last element doesn't have a `Split` before it, or a `Jump` after
-                    last.matcher(program, reverse);
+                    last.matcher(program, categories, reverse);
                     // end of alternates
                     program[jump_instr] = Instr::Jump(program.len());
                 }

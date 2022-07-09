@@ -59,12 +59,12 @@ impl crate::re::Engine for Engine {
 }
 
 #[derive(Clone, Debug, Default, Hash, Eq, PartialEq)]
-pub struct CategoryIndices(pub BTreeMap<usize, usize>);
+pub struct CategoryIndices(pub BTreeMap<u8, usize>);
 
 impl CategoryIndices {
     /// Inserts the specified index at the specified slot. Returns false if the slot was occupied
     /// and does not match the specified index.
-    fn check_insert(&mut self, slot: usize, index: usize) -> bool {
+    fn check_insert(&mut self, slot: u8, index: usize) -> bool {
         if let Some(prev) = self.0.insert(slot, index) {
             // accept iff the previously matched index was the same as this one
             prev == index
@@ -91,7 +91,7 @@ pub enum Consume {
     /// - There are no repeated elements (if a repeated element is matched, there are two possible
     ///   indices to store
     Category {
-        slot: usize,
+        slot: u8,
         map: HashMap<Token, usize>,
     },
 }
@@ -106,5 +106,5 @@ pub enum Peek {
     /// Matches if the current position is at a word boundary.
     WordBoundary,
     /// Saves the specified index in the specified category slot.
-    Category { slot: usize, index: usize },
+    Category { slot: u8, index: usize },
 }

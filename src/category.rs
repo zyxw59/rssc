@@ -15,6 +15,8 @@ use crate::{
 pub type Ident = Vec<Token>;
 /// An element of a category. `None` represents a gap in the category.
 pub type Element = Option<Vec<Token>>;
+/// A map from names to categories.
+pub type Categories = HashMap<Ident, Category>;
 
 /// A set of sounds to be used in patterns and replacements
 #[derive(Debug)]
@@ -73,7 +75,7 @@ impl Category {
     pub fn capturing_matcher(
         &self,
         instruction_list: &mut Program<Engine>,
-        slot: usize,
+        slot: u8,
         reverse: bool,
     ) {
         // skip over the jump instruction
