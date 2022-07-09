@@ -5,6 +5,8 @@ use std::{
     fmt,
 };
 
+use indexmap::IndexSet;
+
 use crate::{
     category::Ident,
     re::{Instr, Program},
@@ -326,14 +328,13 @@ fn match_boolean_expr(
         }
         BooleanExpr::Or(exprs) => {
             // match each environment in parallel, then take the union of all remaining matches
-            let mut new_matches = Vec::new();
+            let mut new_matches = IndexSet::new();
             for expr in exprs {
                 let mut matches = matches.clone();
                 match_boolean_expr(expr, start, end, &mut matches, string);
                 new_matches.extend(matches);
             }
-            // todo: dedup `new_matches`
-            *matches = new_matches;
+            *matches = new_matches.into_iter().collect();
         }
         BooleanExpr::Not(expr) => {
             matches.retain(|match_| {

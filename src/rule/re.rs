@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::token::Token;
 
-#[derive(Clone, Debug, Default, Hash)]
+#[derive(Clone, Debug, Default, Hash, Eq, PartialEq)]
 pub struct Engine {
     /// Whether the previous token was a whitespace token.
     is_whitespace: bool,
@@ -58,7 +58,7 @@ impl crate::re::Engine for Engine {
     }
 }
 
-#[derive(Clone, Debug, Default, Hash)]
+#[derive(Clone, Debug, Default, Hash, Eq, PartialEq)]
 pub struct CategoryIndices(pub BTreeMap<usize, usize>);
 
 impl CategoryIndices {
