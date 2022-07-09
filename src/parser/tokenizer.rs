@@ -167,9 +167,9 @@ fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
 }
 
 #[cfg(test)]
-pub(crate) fn tokenize_simple(input: impl io::Read) -> Result<(Vec<Token>, SegmentMap), Error> {
+pub(crate) fn tokenize_simple(input: &str) -> Result<(Vec<Token>, SegmentMap), Error> {
     let mut segment_map = SegmentMap::new();
-    Tokens::new(io::BufReader::new(input), &mut segment_map)
+    Tokens::new(io::BufReader::new(input.as_bytes()), &mut segment_map)
         .collect::<Result<_, _>>()
         .map(|toks| (toks, segment_map))
 }

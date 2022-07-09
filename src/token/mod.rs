@@ -7,32 +7,37 @@ pub mod segment;
 pub use self::segment::{Segment, SegmentMap};
 
 macro_rules! enum_const {
-    ( $(#[$attr:meta])* $main:ident ($int:ty) { $($value:literal => $id:ident),* $(,)* } ) => {
+    (
+        $(#[$attr:meta])*
+        $main:ident ($vis:vis $int:ty) {
+            $($value:literal => $id:ident),* $(,)*
+        }
+    ) => {
         enum _Constants {
             $( $id, )*
         }
 
         $(#[$attr])*
-        pub struct $main($int);
+            pub struct $main($vis $int);
 
         #[allow(non_upper_case_globals)]
         impl $main {
             $( pub const $id: $main = $main(_Constants::$id as $int); )*
 
-            /// Attempts to generate a value corresponding to the given `u8` if it is one of the
-            /// enumerated `u8`s, or `None` otherwise.
-            fn try_enum(c: u8) -> Option<Self> {
-                match c {
-                    $( $value => Some($main::$id), )*
-                    _ => None,
+                /// Attempts to generate a value corresponding to the given `u8` if it is one of the
+                /// enumerated `u8`s, or `None` otherwise.
+                fn try_enum(c: u8) -> Option<Self> {
+                    match c {
+                        $( $value => Some($main::$id), )*
+                            _ => None,
+                    }
                 }
-            }
 
             /// Returns whether the given `u8` is one of the enumerated values.
             pub fn is_enumerated(c: u8) -> bool {
                 match c {
                     $( $value => true, )*
-                    _ => false,
+                        _ => false,
                 }
             }
 
@@ -41,7 +46,7 @@ macro_rules! enum_const {
             fn as_enumerated(self) -> Result<u8, Self> {
                 match self {
                     $( $main::$id => Ok($value), )*
-                    _ => Err(self),
+                        _ => Err(self),
                 }
             }
         }
@@ -60,7 +65,7 @@ enum_const! {
     /// - All other tokens, including unicode characters, sequences involving combining diacritics, and
     ///   user-defined tokens, are mapped to the range `0x80 ..= u16::MAX`
     #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
-    Token(u16) {
+    Token(pub(crate) u16) {
         b'.' => Dot,
         b'*' => Star,
         b'+' => Plus,
