@@ -5,11 +5,8 @@ authors = ["Emily Crandall Fleischman <emilycf@mit.edu>"]
 edition = "2021"
 
 [dependencies]
-lazy_static = "1.4.0"
-radix_trie = "0.1"
-regex = "0.2"
+derivative = "2.2.0"
+indexmap = "1.9.1"
 thiserror = "1.0.31"
 unicode-normalization = "0.1"
 unicode-general-category = "0.5.1"
-derivative = "2.2.0"
-indexmap = "1.9.1"
