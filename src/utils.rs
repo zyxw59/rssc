@@ -35,13 +35,32 @@ impl<T> BooleanExpr<T> {
     where
         F: FnMut(&T) -> U,
     {
+        match self.try_map(|x| Ok::<_, std::convert::Infallible>(func(x))) {
+            Ok(x) => x,
+            Err(e) => match e {},
+        }
+    }
+
+    /// Applies the specified function to each sub-expression, returning any `Err` encountered.
+    pub fn try_map<F, U, E>(&self, mut func: F) -> Result<BooleanExpr<U>, E>
+    where
+        F: FnMut(&T) -> Result<U, E>,
+    {
         match self {
-            BooleanExpr::Value(x) => BooleanExpr::Value(func(x)),
-            BooleanExpr::And(xs) => BooleanExpr::And(xs.iter().map(|x| x.map(&mut func)).collect()),
-            BooleanExpr::Or(xs) => BooleanExpr::Or(xs.iter().map(|x| x.map(&mut func)).collect()),
-            BooleanExpr::Not(x) => x.map(func).not(),
-            BooleanExpr::True => BooleanExpr::True,
-            BooleanExpr::False => BooleanExpr::False,
+            BooleanExpr::Value(x) => func(x).map(BooleanExpr::Value),
+            BooleanExpr::And(xs) => xs
+                .iter()
+                .map(|x| x.try_map(&mut func))
+                .collect::<Result<_, _>>()
+                .map(BooleanExpr::And),
+            BooleanExpr::Or(xs) => xs
+                .iter()
+                .map(|x| x.try_map(&mut func))
+                .collect::<Result<_, _>>()
+                .map(BooleanExpr::Or),
+            BooleanExpr::Not(x) => x.try_map(func).map(BooleanExpr::not),
+            BooleanExpr::True => Ok(BooleanExpr::True),
+            BooleanExpr::False => Ok(BooleanExpr::False),
         }
     }
 

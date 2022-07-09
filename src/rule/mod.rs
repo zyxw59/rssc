@@ -16,6 +16,12 @@ use crate::{
 
 pub mod re;
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Undefined category: '{0:?}'")]
+    UndefinedCategory(Ident),
+}
+
 /// A single sound change rule.
 pub struct Rule {
     /// The pattern to replace.
@@ -27,26 +33,26 @@ pub struct Rule {
 }
 
 impl Rule {
-    pub fn matcher(&mut self, categories: &Categories) -> RuleMatcher {
+    pub fn matcher(&mut self, categories: &Categories) -> Result<RuleMatcher, Error> {
         self.environment.coalesce();
         // if environment is simple, include it in the search
         if let BooleanExpr::Value(environment) = &self.environment {
             let mut search = Program::new();
-            environment.before.matcher(&mut search, categories, false);
-            self.search.matcher(&mut search, categories);
-            environment.after.matcher(&mut search, categories, false);
-            RuleMatcher {
+            environment.before.matcher(&mut search, categories, false)?;
+            self.search.matcher(&mut search, categories)?;
+            environment.after.matcher(&mut search, categories, false)?;
+            Ok(RuleMatcher {
                 search,
                 environment: BooleanExpr::True,
-            }
+            })
         } else {
             let mut search = Program::new();
-            self.search.matcher(&mut search, categories);
-            let environment = self.environment.map(|env| env.matcher(categories));
-            RuleMatcher {
+            self.search.matcher(&mut search, categories)?;
+            let environment = self.environment.try_map(|env| env.matcher(categories))?;
+            Ok(RuleMatcher {
                 search,
                 environment,
-            }
+            })
         }
     }
 }
@@ -58,12 +64,17 @@ pub enum Search {
 }
 
 impl Search {
-    fn matcher(&self, program: &mut Program<re::Engine>, categories: &Categories) {
+    fn matcher(
+        &self,
+        program: &mut Program<re::Engine>,
+        categories: &Categories,
+    ) -> Result<(), Error> {
         program.push(Instr::Peek(re::Peek::ReplaceStart));
         if let Search::Pattern(pat) = self {
-            pat.matcher(program, categories, false);
+            pat.matcher(program, categories, false)?;
         }
         program.push(Instr::Peek(re::Peek::ReplaceEnd));
+        Ok(())
     }
 }
 
@@ -85,12 +96,12 @@ pub struct Environment {
     pub after: Pattern,
 }
 impl Environment {
-    fn matcher(&self, categories: &Categories) -> EnvironmentMatcher {
+    fn matcher(&self, categories: &Categories) -> Result<EnvironmentMatcher, Error> {
         let mut before = Program::new();
-        self.before.matcher(&mut before, categories, true);
+        self.before.matcher(&mut before, categories, true)?;
         let mut after = Program::new();
-        self.after.matcher(&mut after, categories, false);
-        EnvironmentMatcher { before, after }
+        self.after.matcher(&mut after, categories, false)?;
+        Ok(EnvironmentMatcher { before, after })
     }
 }
 
@@ -117,7 +128,12 @@ pub enum Pattern {
 }
 
 impl Pattern {
-    fn matcher(&self, program: &mut Program<re::Engine>, categories: &Categories, reverse: bool) {
+    fn matcher(
+        &self,
+        program: &mut Program<re::Engine>,
+        categories: &Categories,
+        reverse: bool,
+    ) -> Result<(), Error> {
         match self {
             Pattern::Literal(tok) => program.push(Instr::Consume(re::Consume::Token(*tok))),
             Pattern::Set(tokens) => program.push(Instr::Consume(re::Consume::Set(tokens.clone()))),
@@ -130,6 +146,8 @@ impl Pattern {
                     } else {
                         category.non_capturing_matcher(program, reverse);
                     }
+                } else {
+                    return Err(Error::UndefinedCategory(cat.name.clone()));
                 }
             }
             Pattern::Repeat(pat, rep) => {
@@ -138,17 +156,17 @@ impl Pattern {
                     Repeater::ZeroOrOne(_) => {
                         split = program.len();
                         program.push(Instr::Split(0)); // to be filled in later
-                        pat.matcher(program, categories, reverse);
+                        pat.matcher(program, categories, reverse)?;
                     }
                     Repeater::ZeroOrMore(_) => {
                         split = program.len();
                         program.push(Instr::Split(0)); // to be filled in later
-                        pat.matcher(program, categories, reverse);
+                        pat.matcher(program, categories, reverse)?;
                         program.push(Instr::Jump(split));
                     }
                     Repeater::OneOrMore(_) => {
                         let start = program.len();
-                        pat.matcher(program, categories, reverse);
+                        pat.matcher(program, categories, reverse)?;
                         split = program.len();
                         program.push(Instr::Split(0)); // to be filled in later
                         program.push(Instr::Jump(start));
@@ -170,11 +188,11 @@ impl Pattern {
             Pattern::Concat(pats) => {
                 if reverse {
                     for pat in pats.iter().rev() {
-                        pat.matcher(program, categories, reverse);
+                        pat.matcher(program, categories, reverse)?;
                     }
                 } else {
                     for pat in pats {
-                        pat.matcher(program, categories, reverse);
+                        pat.matcher(program, categories, reverse)?;
                     }
                 }
             }
@@ -188,17 +206,18 @@ impl Pattern {
                     for pat in rest {
                         let split = program.len();
                         program.push(Instr::Split(0)); // to be filled in later
-                        pat.matcher(program, categories, reverse);
+                        pat.matcher(program, categories, reverse)?;
                         program.push(Instr::Jump(jump_instr));
                         program[split] = Instr::Split(program.len());
                     }
                     // last element doesn't have a `Split` before it, or a `Jump` after
-                    last.matcher(program, categories, reverse);
+                    last.matcher(program, categories, reverse)?;
                     // end of alternates
                     program[jump_instr] = Instr::Jump(program.len());
                 }
             }
         }
+        Ok(())
     }
 }
 
