@@ -22,22 +22,39 @@ struct TokenizerEngine {
 impl Engine for TokenizerEngine {
     type Token = char;
     type Consume = Consume;
-    type Peek = ();
+    type Peek = Peek;
 
     fn consume(&mut self, args: &Self::Consume, _index: usize, tok: &Self::Token) -> bool {
         match args {
             Consume::Char(ch) => tok == ch,
-            Consume::Any => true,
-            Consume::ControlChar => Token::is_control_char(*tok),
-            Consume::BaseChar => !is_modifier(*tok),
+            Consume::Any => *tok != '\n',
+            Consume::ControlChar => *tok != '\n' && Token::is_control_char(*tok),
+            Consume::BaseChar => {
+                !Token::is_control_char(*tok) && *tok != '\\' && !is_modifier(*tok)
+            }
             Consume::CombiningChar => is_modifier(*tok) && !is_combining_double(*tok),
             Consume::CombiningDouble => is_combining_double(*tok),
         }
     }
 
-    fn peek(&mut self, (): &Self::Peek, index: usize, _token: Option<&char>) -> bool {
-        self.indices.push(index);
-        true
+    fn peek(&mut self, args: &Self::Peek, index: usize, token: Option<&char>) -> bool {
+        match args {
+            Peek::Save => {
+                self.indices.push(index);
+                true
+            }
+            Peek::EndOfLine => {
+                match token {
+                    Some(&'\n') => {
+                        // index + 1 because we haven't actually consumed the newline
+                        self.indices.push(index + 1);
+                        true
+                    }
+                    None => true,
+                    _ => false,
+                }
+            }
+        }
     }
 }
 
@@ -73,12 +90,26 @@ impl fmt::Display for Consume {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+enum Peek {
+    /// Saves the current position as a token boundary.
+    Save,
+    /// Matches a newline or end of input.
+    EndOfLine,
+}
+
+impl fmt::Display for Peek {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
 /// Construct a regex program to split a line into segments.
 fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
     // the instructions
     let mut prog = Program::new();
     // save instruction, to be performed at the end of each token
-    prog.push(Instr::Peek(()));
+    prog.push(Instr::Peek(Peek::Save));
 
     // match a control character
     let mut split = prog.len();
@@ -93,9 +124,10 @@ fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
     prog.extend([
         Instr::Split(0), // to be set later
         Instr::Consume(Consume::Char('\\')),
-        Instr::Split(split + 5),
+        Instr::Split(split + 6),
         Instr::Consume(Consume::Char('\n')),
-        Instr::Jump(split + 9), // jumps to `Peek(()); Match`
+        Instr::Peek(Peek::Save),
+        Instr::Match,
         Instr::Consume(Consume::Any),
         Instr::Jump(0), // to be set later
     ]);
@@ -105,8 +137,7 @@ fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
     split = prog.len();
     prog.extend([
         Instr::Split(0), // to be set later
-        Instr::Consume(Consume::Char('\n')),
-        Instr::Peek(()),
+        Instr::Peek(Peek::EndOfLine),
         Instr::Match,
     ]);
     // match user-defined segments
@@ -133,6 +164,14 @@ fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
     ]);
 
     prog
+}
+
+#[cfg(test)]
+pub(crate) fn tokenize_simple(input: impl io::Read) -> Result<(Vec<Token>, SegmentMap), Error> {
+    let mut segment_map = SegmentMap::new();
+    Tokens::new(io::BufReader::new(input), &mut segment_map)
+        .collect::<Result<_, _>>()
+        .map(|toks| (toks, segment_map))
 }
 
 /// An `Iterator` that produces the tokens found in a `BufRead`.
@@ -257,8 +296,7 @@ mod tests {
 
     #[test]
     fn multiple_possible_segmentations() {
-        let line = String::from("antś\n");
-        let line = line.chars().nfd();
+        let line = "antś\n".nfd();
         let segments = SegmentMap::from_list(&[vec!['a', 'n'], vec!['n', 't'], vec!['t', 's']]);
         let prog = matcher(&segments);
         println!("{prog}");
@@ -271,8 +309,7 @@ mod tests {
 
     #[test]
     fn combining_double() {
-        let line = String::from("t͜s\n");
-        let line = line.chars().nfd();
+        let line = "t͜s\n".nfd();
         let segments = SegmentMap::from_list(&[]);
         let prog = matcher(&segments);
         println!("{prog}");
@@ -285,8 +322,7 @@ mod tests {
 
     #[test]
     fn backslash() {
-        let line = String::from("\\.\n");
-        let line = line.chars().nfd();
+        let line = "\\.\n".nfd();
         let segments = SegmentMap::from_list(&[]);
         let prog = matcher(&segments);
         println!("{prog}");
@@ -299,8 +335,7 @@ mod tests {
 
     #[test]
     fn backslash_newline() {
-        let line = String::from("\\\n");
-        let line = line.chars().nfd();
+        let line = "\\\n".nfd();
         let segments = SegmentMap::from_list(&[]);
         let prog = matcher(&segments);
         println!("{prog}");
@@ -309,5 +344,17 @@ mod tests {
         assert_eq!(matches.len(), 1);
         let indices = &*matches.first().unwrap().indices;
         assert_eq!(indices, &[0, 2]);
+    }
+
+    #[test]
+    fn no_newline() {
+        let line = "foo".nfd();
+        let prog = matcher(&SegmentMap::new());
+        println!("{prog}");
+
+        let matches = prog.exec(Default::default(), line);
+        assert_eq!(matches.len(), 1);
+        let indices = &*matches.first().unwrap().indices;
+        assert_eq!(indices, &[0, 1, 2, 3]);
     }
 }
