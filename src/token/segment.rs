@@ -52,12 +52,10 @@ impl SegmentMap {
         if key.is_empty() {
             panic!("Segment with zero length");
         }
-        if key.len() == 1 && key[0] <= '\x7F' {
-            Token::try_from_u8(key[0] as u8)
-        } else if key.len() == 2 && key[0] == '\\' && key[1] <= '\x7F' {
-            Token::try_from_u8_escaped(key[1] as u8)
-        } else {
-            None
+        match *key {
+            [x] if x <= '\x7F' => Token::try_from_u8(x as u8),
+            ['\\', x] if x <= '\x7F' => Token::try_from_u8_escaped(x as u8),
+            _ => None,
         }
         .unwrap_or_else(|| {
             self.pad(key.len());
