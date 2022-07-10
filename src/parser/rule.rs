@@ -7,7 +7,7 @@ use crate::{
     utils::BooleanExpr,
 };
 
-struct Parser<I: Iterator> {
+pub struct Parser<I: Iterator> {
     iter: Peekable<I>,
     index: usize,
 }

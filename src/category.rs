@@ -134,6 +134,9 @@ impl Category {
     }
 
     pub fn non_capturing_matcher(&self, instruction_list: &mut Program<Engine>, reverse: bool) {
+        // skip over the jump instruction
+        let start_of_category = instruction_list.len() + 2;
+        instruction_list.push(Instr::Jump(start_of_category));
         let jump_instr = instruction_list.len();
         // the actual destination of this jump will be filled in at the end of the function
         instruction_list.push(Instr::Jump(0));
@@ -144,12 +147,19 @@ impl Category {
                 // we can break here because the elements are already sorted by length
                 break;
             }
-            // element match is 1 instruction per token, plus 1 for the jump to after the category
-            let next_element_start = instruction_list.len() + el.0.len() + 1;
+            // element match is 1 instruction per token, plus 1 for the split, and 1 for jump to
+            // after the category
+            let next_element_start = instruction_list.len() + el.0.len() + 2;
             instruction_list.push(Instr::Split(next_element_start));
             match_string(&el.0, instruction_list, reverse);
             instruction_list.push(Instr::Jump(jump_instr));
-            debug_assert_eq!(instruction_list.len(), next_element_start);
+            debug_assert_eq!(
+                instruction_list.len(), next_element_start,
+                "wrong number of instructions in instruction list: \
+                expected {next_element_start}, found {}.\n\
+                Full listing of instructions:\n{instruction_list}",
+                instruction_list.len(),
+            );
         }
         // handle single-length elements with a `Consume::Set`
         instruction_list.extend([

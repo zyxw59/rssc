@@ -38,7 +38,7 @@ impl Rule {
         self.environment.coalesce();
         // if environment is simple, include it in the search
         if let BooleanExpr::Value(environment) = &self.environment {
-            let mut search = Program::new();
+            let mut search = Program::floating_start();
             environment.before.matcher(&mut search, categories, false)?;
             self.search.matcher(&mut search, categories)?;
             environment.after.matcher(&mut search, categories, false)?;
@@ -60,7 +60,11 @@ impl Rule {
 
 impl fmt::Display for Rule {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} > {} / {}", self.search, self.replace, self.environment)
+        write!(
+            f,
+            "{} > {} / {}",
+            self.search, self.replace, self.environment
+        )
     }
 }
 
@@ -370,6 +374,7 @@ impl RuleMatcher {
     }
 }
 
+#[derive(Debug)]
 struct EnvironmentMatcher {
     before: Program<re::Engine>,
     after: Program<re::Engine>,
@@ -427,5 +432,61 @@ fn match_boolean_expr(
                 matches.is_empty()
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        category::{Categories, Category},
+        parser::rule::Parser,
+        token::{tokenizer::tokenize_with_segment_map, SegmentMap},
+    };
+
+    fn categories() -> (Categories, SegmentMap) {
+        let mut segment_map = SegmentMap::new();
+        const RAW_CATEGORIES: &[(&str, &[&str])] = &[
+            ("V", &["a", "e", "i", "o", "u"]),
+            ("P", &["p", "t", "tʃ", "k"]),
+            ("N", &["m", "n", "ñ", "ŋ"]),
+        ];
+        let categories: Categories = RAW_CATEGORIES
+            .iter()
+            .map(|(name, values)| {
+                let name = tokenize_with_segment_map(name, &mut segment_map);
+                let values = values
+                    .iter()
+                    .map(|s| {
+                        if s.is_empty() {
+                            None
+                        } else {
+                            Some(tokenize_with_segment_map(s, &mut segment_map))
+                        }
+                    })
+                    .collect();
+                (name.clone(), Category::new(name, values))
+            })
+            .collect();
+        (categories, segment_map)
+    }
+
+    #[test]
+    fn simple_match() {
+        let (categories, mut segment_map) = categories();
+        let tokens = tokenize_with_segment_map("{V} > 0 / {P}_{P}", &mut segment_map);
+        let mut rule = Parser::new(tokens).parse_rule().unwrap();
+
+        let matcher = rule.matcher(&categories).unwrap();
+        println!("{}", matcher.search);
+
+        let input = tokenize_with_segment_map("potʃato", &mut segment_map);
+        let matches = matcher.matches(&input);
+        assert_eq!(
+            matches
+                .iter()
+                .map(|m| m.replace_indices())
+                .collect::<Vec<_>>(),
+            &[Some((1, 2)), Some((1, 2)), Some((4, 5))]
+        );
     }
 }

@@ -18,6 +18,8 @@ pub enum Instr<E: Engine> {
     JSplit(InstrPtr),
     /// Jumps to a new point in the program.
     Jump(InstrPtr),
+    /// Consumes a token.
+    Any,
     /// Consumes a token. The engine determines whether it matches.
     Consume(E::Consume),
     /// Peeks at the next token without consuming it. The engine determines whether it matches.
@@ -107,7 +109,7 @@ impl<E> ThreadList<E> {
                 }
             }
             Instr::Reject => {} // do nothing, this thread is dead
-            Instr::Consume(_) | Instr::Match => {
+            Instr::Any | Instr::Consume(_) | Instr::Match => {
                 // push a new thread with the given pc
                 self.threads.push(Thread::new(pc, engine));
             }
@@ -127,6 +129,7 @@ impl<'a, E> IntoIterator for &'a mut ThreadList<E> {
 /// A program for the VM
 #[derive(derivative::Derivative)]
 #[derivative(Debug(bound = "E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
+#[derivative(Default(bound = ""))]
 pub struct Program<E: Engine> {
     /// List of instructions. `InstrPtr`s are indexed into this vector
     pub prog: Vec<Instr<E>>,
@@ -148,7 +151,14 @@ where
 
 impl<E: Engine> Program<E> {
     pub fn new() -> Program<E> {
-        Program { prog: Vec::new() }
+        Default::default()
+    }
+
+    /// Creates a new `Program` which can match at any location, not just the start of the string.
+    pub fn floating_start() -> Program<E> {
+        Program {
+            prog: vec![Instr::JSplit(3), Instr::Any, Instr::Jump(0)],
+        }
     }
 
     /// Executes the program. Returns a vector of matches found. For each match, the state of the
@@ -187,6 +197,16 @@ impl<E: Engine> Program<E> {
             // reallocating
             for mut th in &mut curr {
                 match &self[th.pc] {
+                    Instr::Any => {
+                        next.add_thread(
+                            th.pc + 1,
+                            i + 1,
+                            input.peek().map(|(_i, tok)| tok),
+                            self,
+                            &mut prune_list,
+                            th.engine,
+                        );
+                    }
                     Instr::Consume(args) => {
                         if th.engine.consume(args, i, &tok_i) {
                             next.add_thread(

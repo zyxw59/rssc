@@ -48,19 +48,26 @@ impl<T> BooleanExpr<T> {
     where
         F: FnMut(&T) -> Result<U, E>,
     {
+        self.try_map_internal(&mut func)
+    }
+
+    fn try_map_internal<F, U, E>(&self, func: &mut F) -> Result<BooleanExpr<U>, E>
+    where
+        F: FnMut(&T) -> Result<U, E>,
+    {
         match self {
             BooleanExpr::Value(x) => func(x).map(BooleanExpr::Value),
             BooleanExpr::And(xs) => xs
                 .iter()
-                .map(|x| x.try_map(&mut func))
+                .map(|x| x.try_map_internal(func))
                 .collect::<Result<_, _>>()
                 .map(BooleanExpr::And),
             BooleanExpr::Or(xs) => xs
                 .iter()
-                .map(|x| x.try_map(&mut func))
+                .map(|x| x.try_map_internal(func))
                 .collect::<Result<_, _>>()
                 .map(BooleanExpr::Or),
-            BooleanExpr::Not(x) => x.try_map(func).map(BooleanExpr::not),
+            BooleanExpr::Not(x) => x.try_map_internal(func).map(BooleanExpr::not),
             BooleanExpr::True => Ok(BooleanExpr::True),
             BooleanExpr::False => Ok(BooleanExpr::False),
         }
