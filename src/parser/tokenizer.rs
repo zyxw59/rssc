@@ -214,18 +214,18 @@ impl<'s, R: BufRead> Tokens<'s, R> {
             self.in_buffer.clear();
             // read a new line
             self.input.read_line(&mut self.in_buffer)?;
-            // perform canonical decomposition on the string
-            let chars = self.in_buffer.chars().nfd().collect::<Vec<char>>();
-            if chars.is_empty() {
+            if self.in_buffer.is_empty() {
                 return Ok(());
             }
+            // perform canonical decomposition on the string
+            let mut chars = self.in_buffer.chars().nfd();
             // extract segment boundaries
-            let matches = self.re.exec(Default::default(), chars.iter().copied());
-            let saves = &matches.first().ok_or(Error::Tokenizing(self.line))?.indices;
+            let matches = self.re.exec(Default::default(), chars.clone());
+            let indices = &matches.first().ok_or(Error::Tokenizing(self.line))?.indices;
             self.line += 1;
-            for (start, end) in saves.iter().zip(saves[1..].iter()) {
+            for (start, end) in indices.iter().zip(indices[1..].iter()) {
                 // extract the sgement
-                let seg = Segment::from(&chars[*start..*end]);
+                let seg = chars.by_ref().take(end - start).collect::<Segment>();
                 // get the token corresponding to the segment
                 let tok = self.segment_map.get_or_insert(seg.clone());
                 // if the segment was new, push it into the token map
