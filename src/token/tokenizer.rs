@@ -166,11 +166,15 @@ fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
 }
 
 #[cfg(test)]
-pub(crate) fn tokenize_simple(input: &str) -> Result<(Vec<Token>, SegmentMap), Error> {
-    let mut segment_map = SegmentMap::new();
-    Tokens::new(io::BufReader::new(input.as_bytes()), &mut segment_map)
+pub(crate) fn tokenize(input: &str) -> Vec<Token> {
+    tokenize_with_segment_map(input, &mut Default::default())
+}
+
+#[cfg(test)]
+pub(crate) fn tokenize_with_segment_map(input: &str, segment_map: &mut SegmentMap) -> Vec<Token> {
+    Tokens::new(input.as_bytes(), segment_map)
         .collect::<Result<_, _>>()
-        .map(|toks| (toks, segment_map))
+        .unwrap()
 }
 
 /// An `Iterator` that produces the tokens found in a `BufRead`.

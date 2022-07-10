@@ -393,11 +393,11 @@ pub enum Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::token::tokenizer::tokenize_simple;
+    use crate::token::tokenizer::tokenize;
 
     #[test]
     fn parse_number() {
-        let input = tokenize_simple("123").unwrap().0;
+        let input = tokenize("123");
         let mut parser = Parser::new(input);
         let num = parser.parse_number();
         assert_eq!(num, 123);
@@ -406,7 +406,7 @@ mod tests {
 
     #[test]
     fn parse_ident() {
-        let input = tokenize_simple("abc").unwrap().0;
+        let input = tokenize("abc");
         let mut parser = Parser::new(input.clone());
         let ident = parser.parse_ident();
         assert_eq!(ident, input);
@@ -414,7 +414,7 @@ mod tests {
 
     #[test]
     fn parse_category_no_number() {
-        let input = tokenize_simple("{C}").unwrap().0;
+        let input = tokenize("{C}");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(
@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     fn parse_category_number() {
-        let input = tokenize_simple("{3:C}").unwrap().0;
+        let input = tokenize("{3:C}");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn parse_set() {
-        let input = tokenize_simple("[abc]").unwrap().0;
+        let input = tokenize("[abc]");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn simple_expr() {
-        let input = tokenize_simple("a|b").unwrap().0;
+        let input = tokenize("a|b");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(
@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn repeater() {
-        let input = tokenize_simple("a?").unwrap().0;
+        let input = tokenize("a?");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(
@@ -485,7 +485,7 @@ mod tests {
 
     #[test]
     fn repeater_lazy() {
-        let input = tokenize_simple("a??").unwrap().0;
+        let input = tokenize("a??");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(
@@ -499,7 +499,7 @@ mod tests {
 
     #[test]
     fn unexpected_question() {
-        let input = tokenize_simple("a???").unwrap().0;
+        let input = tokenize("a???");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Err(Error::Token(3, Token::Question)));
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn unexpected_open() {
-        let input = tokenize_simple("a(").unwrap().0;
+        let input = tokenize("a(");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Err(Error::EndOfInput));
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn unexpected_open_2() {
-        let input = tokenize_simple("a|b(").unwrap().0;
+        let input = tokenize("a|b(");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Err(Error::EndOfInput));
@@ -523,7 +523,7 @@ mod tests {
 
     #[test]
     fn unexpected_open_3() {
-        let input = tokenize_simple("a|(").unwrap().0;
+        let input = tokenize("a|(");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Err(Error::EndOfInput));
@@ -531,7 +531,7 @@ mod tests {
 
     #[test]
     fn nested() {
-        let input = tokenize_simple("(a)").unwrap().0;
+        let input = tokenize("(a)");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Ok(Pattern::Literal(Token(b'a' as u16))));
@@ -539,7 +539,7 @@ mod tests {
 
     #[test]
     fn missing_close() {
-        let input = tokenize_simple("(a").unwrap().0;
+        let input = tokenize("(a");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Err(Error::EndOfInput));
@@ -547,7 +547,7 @@ mod tests {
 
     #[test]
     fn doubly_nested() {
-        let input = tokenize_simple("((a))").unwrap().0;
+        let input = tokenize("((a))");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Ok(Pattern::Literal(Token(b'a' as u16))));
@@ -555,7 +555,7 @@ mod tests {
 
     #[test]
     fn doubly_nested_mismatch() {
-        let input = tokenize_simple("((a)").unwrap().0;
+        let input = tokenize("((a)");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Err(Error::EndOfInput));
@@ -563,7 +563,7 @@ mod tests {
 
     #[test]
     fn arrow() {
-        let input = tokenize_simple("a>").unwrap().0;
+        let input = tokenize("a>");
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Ok(Pattern::Literal(Token(b'a' as u16))));
@@ -571,7 +571,7 @@ mod tests {
 
     #[test]
     fn parse_replace() {
-        let input = tokenize_simple("a{1:C}").unwrap().0;
+        let input = tokenize("a{1:C}");
         let mut parser = Parser::new(input);
         let result = parser.parse_replace();
         assert_eq!(
@@ -588,7 +588,7 @@ mod tests {
 
     #[test]
     fn simple_environment() {
-        let input = tokenize_simple("a_b").unwrap().0;
+        let input = tokenize("a_b");
         let mut parser = Parser::new(input);
         let result = parser.parse_environment();
         assert_eq!(
@@ -602,7 +602,7 @@ mod tests {
 
     #[test]
     fn environment_or() {
-        let input = tokenize_simple("|(a_b c_d)").unwrap().0;
+        let input = tokenize("|(a_b c_d)");
         let mut parser = Parser::new(input);
         let result = parser.parse_environment();
         assert_eq!(
@@ -622,7 +622,7 @@ mod tests {
 
     #[test]
     fn environment_nested() {
-        let input = tokenize_simple("|(&(a_ _b)c_d)").unwrap().0;
+        let input = tokenize("|(&(a_ _b)c_d)");
         let mut parser = Parser::new(input);
         let result = parser.parse_environment();
         assert_eq!(

@@ -192,25 +192,19 @@ impl<T: cmp::Ord> cmp::PartialOrd for SortByLen<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{re::Program, token::Token};
+    use crate::{re::Program, token::tokenizer::tokenize};
 
     use super::Category;
 
     #[test]
     fn simple_category() {
         let elements = vec![
-            Some(vec![Token::try_from_u8(b'm').unwrap()]),
-            Some(vec![Token::try_from_u8(b'n').unwrap()]),
-            Some(vec![
-                Token::try_from_u8(b'g').unwrap(),
-                Token::try_from_u8(b'n').unwrap(),
-            ]),
-            Some(vec![
-                Token::try_from_u8(b'n').unwrap(),
-                Token::try_from_u8(b'g').unwrap(),
-            ]),
+            Some(tokenize("m")),
+            Some(tokenize("n")),
+            Some(tokenize("gn")),
+            Some(tokenize("ng")),
         ];
-        let name = vec![Token::try_from_u8(b'N').unwrap()];
+        let name = tokenize("N");
 
         let category = Category::new(name, elements);
 
@@ -219,11 +213,7 @@ mod tests {
         category.capturing_matcher(&mut program, 1, false);
         println!("{}", program);
 
-        let test_string = vec![
-            Token::try_from_u8(b'n').unwrap(),
-            Token::try_from_u8(b'g').unwrap(),
-            Token::try_from_u8(b'n').unwrap(),
-        ];
+        let test_string = tokenize("ngn");
 
         let matches = program.exec(Default::default(), test_string);
         let indices = matches
