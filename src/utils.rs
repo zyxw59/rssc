@@ -1,5 +1,7 @@
 //! Utility types.
 
+use std::fmt;
+
 /// A boolean expression, consisting of nested And, Or, and Not operators.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BooleanExpr<T> {
@@ -151,6 +153,37 @@ impl<T> BooleanExpr<T> {
                 }
                 _ => {}
             }
+        }
+    }
+}
+
+impl<T: fmt::Display> fmt::Display for BooleanExpr<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BooleanExpr::Value(x) => fmt::Display::fmt(x, f),
+            BooleanExpr::And(xs) => {
+                f.write_str("&(")?;
+                if let Some((first, rest)) = xs.split_first() {
+                    fmt::Display::fmt(first, f)?;
+                    for x in rest {
+                        write!(f, " {x}")?;
+                    }
+                }
+                f.write_str(")")
+            }
+            BooleanExpr::Or(xs) => {
+                f.write_str("|(")?;
+                if let Some((first, rest)) = xs.split_first() {
+                    fmt::Display::fmt(first, f)?;
+                    for x in rest {
+                        write!(f, " {x}")?;
+                    }
+                }
+                f.write_str(")")
+            }
+            BooleanExpr::Not(x) => write!(f, "!{x}"),
+            BooleanExpr::True => f.write_str("True"),
+            BooleanExpr::False => f.write_str("False"),
         }
     }
 }

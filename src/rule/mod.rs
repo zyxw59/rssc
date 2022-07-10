@@ -23,6 +23,7 @@ pub enum Error {
 }
 
 /// A single sound change rule.
+#[derive(Debug)]
 pub struct Rule {
     /// The pattern to replace.
     pub search: Search,
@@ -57,7 +58,14 @@ impl Rule {
     }
 }
 
+impl fmt::Display for Rule {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} > {} / {}", self.search, self.replace, self.environment)
+    }
+}
+
 /// The pattern to replace in a sound change rule.
+#[derive(Debug)]
 pub enum Search {
     Zero,
     Pattern(Pattern),
@@ -78,9 +86,31 @@ impl Search {
     }
 }
 
+impl fmt::Display for Search {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Search::Zero => f.write_str("0"),
+            Search::Pattern(pat) => fmt::Display::fmt(pat, f),
+        }
+    }
+}
+
 /// The replacement portion of a sound change rule.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Replace(pub Vec<ReplaceTok>);
+
+impl fmt::Display for Replace {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.0.is_empty() {
+            f.write_str("0")
+        } else {
+            for tok in &self.0 {
+                fmt::Display::fmt(tok, f)?;
+            }
+            Ok(())
+        }
+    }
+}
 
 /// A replacement token.
 #[derive(Clone, Debug, PartialEq)]
@@ -89,12 +119,22 @@ pub enum ReplaceTok {
     Category(Category),
 }
 
+impl fmt::Display for ReplaceTok {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ReplaceTok::Token(tok) => fmt::Display::fmt(tok, f),
+            ReplaceTok::Category(cat) => fmt::Display::fmt(cat, f),
+        }
+    }
+}
+
 /// An environment for applying a rule.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Environment {
     pub before: Pattern,
     pub after: Pattern,
 }
+
 impl Environment {
     fn matcher(&self, categories: &Categories) -> Result<EnvironmentMatcher, Error> {
         let mut before = Program::new();
@@ -102,6 +142,12 @@ impl Environment {
         let mut after = Program::new();
         self.after.matcher(&mut after, categories, false)?;
         Ok(EnvironmentMatcher { before, after })
+    }
+}
+
+impl fmt::Display for Environment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}_{}", self.before, self.after)
     }
 }
 
@@ -234,7 +280,7 @@ impl fmt::Display for Pattern {
             }
             Pattern::Any => f.write_str("."),
             Pattern::WordBoundary => f.write_str("#"),
-            Pattern::Category(cat) => fmt::Debug::fmt(cat, f),
+            Pattern::Category(cat) => fmt::Display::fmt(cat, f),
             Pattern::Repeat(pat, rep) => write!(f, "{pat}{rep}"),
             Pattern::Concat(v) => {
                 for pat in v {
@@ -280,6 +326,19 @@ pub struct Category {
     pub name: Ident,
     /// The slot to associate the category with.
     pub number: Option<u8>,
+}
+
+impl fmt::Display for Category {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("{")?;
+        if let Some(number) = self.number {
+            write!(f, "{number}:")?;
+        }
+        for tok in &self.name {
+            fmt::Display::fmt(tok, f)?;
+        }
+        f.write_str("}")
+    }
 }
 
 pub struct RuleMatcher {
