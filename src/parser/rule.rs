@@ -393,7 +393,7 @@ pub enum Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::tokenizer::tokenize_simple;
+    use crate::token::tokenizer::tokenize_simple;
 
     #[test]
     fn parse_number() {

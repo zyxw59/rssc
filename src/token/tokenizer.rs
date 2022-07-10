@@ -7,12 +7,11 @@ use std::iter::Peekable;
 
 use unicode_normalization::UnicodeNormalization;
 
+use super::{Segment, SegmentMap, Token};
 use crate::{
-    token::{Segment, SegmentMap, Token},
+    re::{Engine, Instr, Program},
     unicode::{is_combining_double, is_modifier},
 };
-
-use crate::re::{Engine, Instr, Program};
 
 #[derive(Clone, Debug, Default)]
 struct TokenizerEngine {

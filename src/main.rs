@@ -30,7 +30,7 @@ fn main() {
         match line {
             Ok(line) => {
                 let line = line + "\n";
-                let tokens = parser::tokenizer::Tokens::new(line.as_ref(), &mut segments);
+                let tokens = token::Tokens::new(line.as_ref(), &mut segments);
                 println!("{:?}", tokens.collect::<Vec<_>>());
             }
             Err(err) => {

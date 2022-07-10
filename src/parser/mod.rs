@@ -5,7 +5,6 @@ use std::borrow::Borrow;
 use crate::token::Token;
 
 mod rule;
-pub mod tokenizer;
 
 /// Determines what kind of statement a line represents based on simple criteria.
 ///
