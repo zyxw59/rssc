@@ -154,7 +154,8 @@ impl Category {
             match_string(&el.0, instruction_list, reverse);
             instruction_list.push(Instr::Jump(jump_instr));
             debug_assert_eq!(
-                instruction_list.len(), next_element_start,
+                instruction_list.len(),
+                next_element_start,
                 "wrong number of instructions in instruction list: \
                 expected {next_element_start}, found {}.\n\
                 Full listing of instructions:\n{instruction_list}",
@@ -207,7 +208,7 @@ mod tests {
     use super::Category;
 
     #[test]
-    fn simple_category() {
+    fn simple() {
         let elements = vec![
             Some(tokenize("m")),
             Some(tokenize("n")),
@@ -215,22 +216,72 @@ mod tests {
             Some(tokenize("ng")),
         ];
         let name = tokenize("N");
-
         let category = Category::new(name, elements);
+        let mut program = Program::floating_start();
+        category.non_capturing_matcher(&mut program, false);
+        println!("{program}");
+        let test_string = tokenize("man");
+        assert_eq!(
+            program.exec(Default::default(), test_string.clone()).len(),
+            2
+        );
 
-        let mut program = Program::new();
+        let mut program = Program::floating_start();
         category.capturing_matcher(&mut program, 0, false);
-        category.capturing_matcher(&mut program, 1, false);
-        println!("{}", program);
-
-        let test_string = tokenize("ngn");
-
+        println!("{program}");
+        let test_string = tokenize("man");
         let matches = program.exec(Default::default(), test_string);
         let indices = matches
             .into_iter()
             .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
             .collect::<Vec<_>>();
 
+        assert_eq!(indices, &[&[0], &[1]]);
+    }
+
+    #[test]
+    fn ambiguous_match() {
+        let elements = vec![
+            Some(tokenize("m")),
+            Some(tokenize("n")),
+            Some(tokenize("gn")),
+            Some(tokenize("ng")),
+        ];
+        let name = tokenize("N");
+        let category = Category::new(name, elements);
+
+        let mut program = Program::new();
+        category.capturing_matcher(&mut program, 0, false);
+        category.capturing_matcher(&mut program, 1, false);
+        println!("{program}");
+        let test_string = tokenize("ngn");
+        let matches = program.exec(Default::default(), test_string);
+        let indices = matches
+            .into_iter()
+            .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
         assert_eq!(indices, &[&[3, 1], &[1, 2]]);
+
+        let mut program = Program::floating_start();
+        category.capturing_matcher(&mut program, 0, false);
+        println!("{program}");
+        let test_string = tokenize("ng");
+        let matches = program.exec(Default::default(), test_string);
+        let indices = matches
+            .into_iter()
+            .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        assert_eq!(indices, &[&[1], &[3]]);
+
+        let mut program = Program::floating_start();
+        category.capturing_matcher(&mut program, 0, false);
+        println!("{program}");
+        let test_string = tokenize("gn");
+        let matches = program.exec(Default::default(), test_string);
+        let indices = matches
+            .into_iter()
+            .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        assert_eq!(indices, &[&[2], &[1]]);
     }
 }
