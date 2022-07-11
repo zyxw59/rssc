@@ -1,6 +1,6 @@
 use std::fmt;
 use std::mem;
-use std::ops::Index;
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use super::{engine::Engine, prune::PruneList};
 
@@ -10,7 +10,7 @@ pub type InstrPtr = usize;
 /// A single instruction
 #[derive(derivative::Derivative)]
 #[derivative(Debug(bound = "E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
-pub enum Instr<T, E: Engine<T>> {
+pub enum Instr<E: Engine> {
     /// Splits into two states, preferring not to jump. Used to implement alternations and
     /// quantifiers
     Split(InstrPtr),
@@ -18,6 +18,8 @@ pub enum Instr<T, E: Engine<T>> {
     JSplit(InstrPtr),
     /// Jumps to a new point in the program.
     Jump(InstrPtr),
+    /// Consumes a token.
+    Any,
     /// Consumes a token. The engine determines whether it matches.
     Consume(E::Consume),
     /// Peeks at the next token without consuming it. The engine determines whether it matches.
@@ -63,16 +65,16 @@ impl<E> ThreadList<E> {
     /// locations. If `pc` points to a `Jump`, `Split`, `JSplit`, or `Peek` instruction, calls
     /// `add_thread` recursively, so that the active `ThreadList` never contains pointers to those
     /// instructions.
-    fn add_thread<T>(
+    fn add_thread(
         &mut self,
         pc: InstrPtr,
         in_idx: usize,
-        next_tok: Option<&T>,
-        prog: &Program<T, E>,
+        next_tok: Option<&E::Token>,
+        prog: &Program<E>,
         prune_list: &mut PruneList,
         mut engine: E,
     ) where
-        E: Engine<T>,
+        E: Engine,
     {
         // prune this thread if necessary
         if prune_list.insert(pc, &engine, in_idx) {
@@ -107,7 +109,7 @@ impl<E> ThreadList<E> {
                 }
             }
             Instr::Reject => {} // do nothing, this thread is dead
-            Instr::Consume(_) | Instr::Match => {
+            Instr::Any | Instr::Consume(_) | Instr::Match => {
                 // push a new thread with the given pc
                 self.threads.push(Thread::new(pc, engine));
             }
@@ -126,60 +128,68 @@ impl<'a, E> IntoIterator for &'a mut ThreadList<E> {
 
 /// A program for the VM
 #[derive(derivative::Derivative)]
-#[derivative(Debug(bound = "E::Init: fmt::Debug, E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
-pub struct Program<T, E: Engine<T>> {
+#[derivative(Debug(bound = "E::Consume: fmt::Debug, E::Peek: fmt::Debug"))]
+#[derivative(Default(bound = ""))]
+pub struct Program<E: Engine> {
     /// List of instructions. `InstrPtr`s are indexed into this vector
-    prog: Vec<Instr<T, E>>,
-    /// Initialization arguments for the engine
-    init: E::Init,
+    pub prog: Vec<Instr<E>>,
 }
 
-impl<T, E: Engine<T>> fmt::Display for Program<T, E>
+impl<E: Engine> fmt::Display for Program<E>
 where
     E::Peek: fmt::Debug,
     E::Consume: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let width = self.prog.len().to_string().len();
         for (i, instr) in self.prog.iter().enumerate() {
-            writeln!(f, "{i:02X}: {instr:?}")?;
+            writeln!(f, "{i:width$}: {instr:?}")?;
         }
         Ok(())
     }
 }
 
-impl<T, E: Engine<T>> Program<T, E> {
-    pub fn new(prog: Vec<Instr<T, E>>, init: E::Init) -> Program<T, E> {
-        Program { prog, init }
+impl<E: Engine> Program<E> {
+    pub fn new() -> Program<E> {
+        Default::default()
     }
 
-    /// Executes the program. Returns a vector of matches found. For each match, the positions of
-    /// all the save locations are stored in a vector
-    pub fn exec<I>(&self, input: I) -> Vec<E>
+    /// Creates a new `Program` which can match at any location, not just the start of the string.
+    pub fn floating_start() -> Program<E> {
+        Program {
+            prog: vec![Instr::JSplit(3), Instr::Any, Instr::Jump(0)],
+        }
+    }
+
+    /// Executes the program. Returns a vector of matches found. For each match, the state of the
+    /// engine is returned.
+    pub fn exec<I>(&self, initial_state: E, input: I) -> Vec<E>
     where
-        I: IntoIterator<Item = T>,
+        I: IntoIterator<Item = E::Token>,
+    {
+        let mut states = vec![initial_state];
+        self.exec_multiple(&mut states, input);
+        states
+    }
+
+    pub fn exec_multiple<I>(&self, states: &mut Vec<E>, input: I)
+    where
+        I: IntoIterator<Item = E::Token>,
     {
         let mut input = input.into_iter().enumerate().peekable();
 
-        // initialize thread lists. The number of threads should be limited by the length of the
-        // program, since each instruction either ends a thread (in the case of a `Match`, `Reject`
-        // or a failed `Peek` or `Consume` instruction), continues an existing thread (in the case
-        // of a successful `Consume`, `Jump`, or `Peek` instruction), or spawns a new thread (in
-        // the case of a `Split` or `JSplit` instruction)
-        let mut curr = ThreadList::new(self.prog.len());
-        let mut next = ThreadList::new(self.prog.len());
+        let mut curr = ThreadList::new(states.len());
+        let mut next = ThreadList::new(states.len());
 
-        let mut saves = Vec::new();
         let mut prune_list = PruneList::new(self.prog.len());
 
         // start initial thread at start instruction
-        curr.add_thread(
-            0,
-            0,
-            input.peek().map(|(_i, tok)| tok),
-            self,
-            &mut prune_list,
-            E::initialize(&self.init),
-        );
+        let first_tok = input.peek().map(|(_i, tok)| tok);
+        for state in states.drain(..) {
+            curr.add_thread(0, 0, first_tok, self, &mut prune_list, state);
+        }
+
+        let matches = states;
 
         // iterate over tokens of input string
         while let Some((i, tok_i)) = input.next() {
@@ -187,6 +197,16 @@ impl<T, E: Engine<T>> Program<T, E> {
             // reallocating
             for mut th in &mut curr {
                 match &self[th.pc] {
+                    Instr::Any => {
+                        next.add_thread(
+                            th.pc + 1,
+                            i + 1,
+                            input.peek().map(|(_i, tok)| tok),
+                            self,
+                            &mut prune_list,
+                            th.engine,
+                        );
+                    }
                     Instr::Consume(args) => {
                         if th.engine.consume(args, i, &tok_i) {
                             next.add_thread(
@@ -201,7 +221,7 @@ impl<T, E: Engine<T>> Program<T, E> {
                     }
                     Instr::Match => {
                         // add the saved locations to the final list
-                        saves.push(th.engine);
+                        matches.push(th.engine);
                     }
                     // These instructions are handled in add_thread, so the current thread should
                     // never point to one of them
@@ -222,20 +242,43 @@ impl<T, E: Engine<T>> Program<T, E> {
         // now iterate over remaining threads, to check for pending match instructions
         for th in &mut curr {
             if let Instr::Match = self[th.pc] {
-                saves.push(th.engine);
+                matches.push(th.engine);
             }
             // anything else is a failed match
         }
-
-        // return the list of saved locations
-        saves
     }
 }
 
-impl<T, E: Engine<T>> Index<InstrPtr> for Program<T, E> {
-    type Output = Instr<T, E>;
+impl<E: Engine> Deref for Program<E> {
+    type Target = Vec<Instr<E>>;
 
-    fn index(&self, idx: InstrPtr) -> &Instr<T, E> {
-        self.prog.index(idx)
+    fn deref(&self) -> &Self::Target {
+        &self.prog
+    }
+}
+
+impl<E: Engine> DerefMut for Program<E> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.prog
+    }
+}
+
+impl<E: Engine> Index<InstrPtr> for Program<E> {
+    type Output = Instr<E>;
+
+    fn index(&self, idx: InstrPtr) -> &Instr<E> {
+        // allow "one-past-the-end" jumps, resulting in a successful match
+        if idx == self.prog.len() {
+            &Instr::Match
+        } else {
+            self.prog.index(idx)
+        }
+    }
+}
+
+impl<E: Engine> IndexMut<InstrPtr> for Program<E> {
+    fn index_mut(&mut self, idx: InstrPtr) -> &mut Instr<E> {
+        // do not allow "one-past-the-end", since that wouldn't make sense for a mutable index
+        self.prog.index_mut(idx)
     }
 }

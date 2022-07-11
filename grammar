@@ -36,7 +36,7 @@ RegexConcat => RegexRepeat | RegexRepeat RegexConcat
 
 RegexRepeat => RegexToken RegexRepeater
 
-RegexToken => '.' | '#' | '$' | Category | '(' Regex ')' | Token
+RegexToken => '.' | '#' | Category | '(' Regex ')' | Token
 
 RegexRepeater => ∅ | RegexRepeaterBase RegexRepeaterGreedy
 

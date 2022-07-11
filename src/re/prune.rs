@@ -9,7 +9,8 @@ pub struct PruneList<S = RandomState> {
 impl PruneList<RandomState> {
     pub fn new(len: usize) -> Self {
         PruneList {
-            last_seen: vec![None; len],
+            // add one spot to allow for "one-past-the-end jumps"
+            last_seen: vec![None; len + 1],
             hasher: RandomState::new(),
         }
     }

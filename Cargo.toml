@@ -2,10 +2,11 @@
 name = "rssc"
 version = "0.1.0"
 authors = ["Emily Crandall Fleischman <emilycf@mit.edu>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 derivative = "2.2.0"
+indexmap = "1.9.1"
 thiserror = "1.0.31"
 unicode-normalization = "0.1"
 unicode-general-category = "0.5.1"

@@ -3,36 +3,43 @@ use std::fmt;
 use std::ops::Add;
 
 pub mod segment;
+pub mod tokenizer;
 
-pub use self::segment::{Segment, SegmentMap};
+pub use segment::{Segment, SegmentMap};
+pub use tokenizer::Tokens;
 
 macro_rules! enum_const {
-    ( $(#[$attr:meta])* $main:ident ($int:ty) { $($value:literal => $id:ident),* $(,)* } ) => {
+    (
+        $(#[$attr:meta])*
+        $main:ident ($vis:vis $int:ty) {
+            $($value:literal => $id:ident),* $(,)*
+        }
+    ) => {
         enum _Constants {
             $( $id, )*
         }
 
         $(#[$attr])*
-        pub struct $main($int);
+            pub struct $main($vis $int);
 
         #[allow(non_upper_case_globals)]
         impl $main {
             $( pub const $id: $main = $main(_Constants::$id as $int); )*
 
-            /// Attempts to generate a value corresponding to the given `u8` if it is one of the
-            /// enumerated `u8`s, or `None` otherwise.
-            fn try_enum(c: u8) -> Option<Self> {
-                match c {
-                    $( $value => Some($main::$id), )*
-                    _ => None,
+                /// Attempts to generate a value corresponding to the given `u8` if it is one of the
+                /// enumerated `u8`s, or `None` otherwise.
+                fn try_enum(c: u8) -> Option<Self> {
+                    match c {
+                        $( $value => Some($main::$id), )*
+                            _ => None,
+                    }
                 }
-            }
 
             /// Returns whether the given `u8` is one of the enumerated values.
             pub fn is_enumerated(c: u8) -> bool {
                 match c {
                     $( $value => true, )*
-                    _ => false,
+                        _ => false,
                 }
             }
 
@@ -41,7 +48,7 @@ macro_rules! enum_const {
             fn as_enumerated(self) -> Result<u8, Self> {
                 match self {
                     $( $main::$id => Ok($value), )*
-                    _ => Err(self),
+                        _ => Err(self),
                 }
             }
         }
@@ -52,7 +59,7 @@ enum_const! {
     ///
     /// - Characters with special meaning in the rule file format, i.e.
     ///   - Regex control characters (`.*+?()[]|`)
-    ///   - Characters with special meaning in patterns (`#$0{}`)
+    ///   - Characters with special meaning in patterns (`#0{}`)
     ///   - Characters which delimit the parser (`=:>_/!|&\n\t `)
     ///   are mapped to the range `0x00 ..= 0x1F`.
     /// - Printable ASCII characters (and backslash-escaped control characters) are mapped to their
@@ -60,7 +67,7 @@ enum_const! {
     /// - All other tokens, including unicode characters, sequences involving combining diacritics, and
     ///   user-defined tokens, are mapped to the range `0x80 ..= u16::MAX`
     #[derive(Clone, Copy, Hash, Eq, Ord, PartialEq, PartialOrd)]
-    Token(u16) {
+    Token(pub(crate) u16) {
         b'.' => Dot,
         b'*' => Star,
         b'+' => Plus,
@@ -71,7 +78,6 @@ enum_const! {
         b']' => CloseBracket,
         b'|' => Pipe,
         b'#' => Hash,
-        b'$' => Dollar,
         b'0' => Zero,
         b'{' => OpenBrace,
         b'}' => CloseBrace,
@@ -188,7 +194,9 @@ impl fmt::Debug for Token {
             write!(f, "{:?}", enumerated as char)
         } else {
             match self.0 {
-                x @ 0..=0x7F if Self::is_enumerated(x as u8) => write!(f, "'\\{}'", x as u8 as char),
+                x @ 0..=0x7F if Self::is_enumerated(x as u8) => {
+                    write!(f, "'\\{}'", x as u8 as char)
+                }
                 x @ 0..=0x7F => write!(f, "{:?}", x as u8 as char),
                 x @ 0x80..=0xFF => write!(f, "'\\x{x:02x}'"),
                 x => write!(f, "'\\u{x:04x}'"),

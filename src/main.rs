@@ -4,6 +4,7 @@ pub mod re;
 pub mod rule;
 pub mod token;
 pub mod unicode;
+mod utils;
 
 use std::io::{self, BufRead};
 
@@ -29,7 +30,7 @@ fn main() {
         match line {
             Ok(line) => {
                 let line = line + "\n";
-                let tokens = parser::tokenizer::Tokens::new(line.as_ref(), &mut segments);
+                let tokens = token::Tokens::new(line.as_ref(), &mut segments);
                 println!("{:?}", tokens.collect::<Vec<_>>());
             }
             Err(err) => {

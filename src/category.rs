@@ -1,24 +1,36 @@
 //! A [`Category`] is a set of sounds to be used in patterns and replacements.
 
-use std::cmp;
-use std::collections::hash_map::Entry;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::{
+    cmp,
+    collections::{BTreeMap, HashMap, HashSet},
+};
 
-use crate::token::Token;
+use crate::{
+    re::{Instr, Program},
+    rule::re::{Consume, Engine, Peek},
+    token::Token,
+};
 
 /// A category name.
 pub type Ident = Vec<Token>;
+/// An element of a category. `None` represents a gap in the category.
+pub type Element = Option<Vec<Token>>;
+/// A map from names to categories.
+pub type Categories = HashMap<Ident, Category>;
 
 /// A set of sounds to be used in patterns and replacements
 #[derive(Debug)]
 pub struct Category {
     /// The elements of the category
     elements: Vec<Element>,
-    // /// A regular expression matching the category.
-    // pattern: Regex<Token>,
     /// A map from elements to the indices of those elements. Note that an element might correspond
     /// to multiple indices.
-    indices: HashMap<Vec<Token>, Vec<usize>>,
+    indices: BTreeMap<SortByLen<Token>, Vec<usize>>,
+    /// A map from single-token elements to the indices of those elements.
+    /// Only populated if none of those elements are repeated.
+    single_map: Option<HashMap<Token, usize>>,
+    /// The set of single-token elements.
+    single_set: HashSet<Token>,
     /// The name of the category
     name: Ident,
 }
@@ -27,106 +39,249 @@ impl Category {
     /// Constructs a category from a name and a vector of elements
     pub fn new(name: Ident, elements: Vec<Element>) -> Category {
         let n = elements.len();
-        // if all elements are empty or single tokens, we can use a `Set` instruction to match the
-        // category, otherwise we must use an `Alternate` instruction.
-        let mut can_use_set = true;
-        // indices map
-        let mut indices = HashMap::with_capacity(n);
-        // to hold elements, sorted by length
-        let mut sorted = BTreeSet::new();
-        // to hold a set of elements if they are all one segment
-        let mut set = HashSet::with_capacity(n);
-        // iterate over elements
+        let mut indices = BTreeMap::<_, Vec<usize>>::new();
+        let mut single_set = HashSet::with_capacity(n);
+        let mut single_map = HashMap::with_capacity(n);
+        let mut can_use_single_map = true;
         for (i, el) in elements.iter().enumerate() {
-            if let Element::String(el) = el {
-                if can_use_set && el.len() == 1 {
-                    set.insert(el[0]);
-                } else {
-                    can_use_set = false;
-                }
-                match indices.entry(el.clone()) {
-                    Entry::Vacant(entry) => {
-                        // this is the first instance of this element
-                        // store the index in this entry
-                        entry.insert(vec![i]);
-                        // sort this element by length
-                        sorted.insert(SortKey {
-                            key: el.len(),
-                            value: i,
-                        });
-                    }
-                    Entry::Occupied(mut entry) => {
-                        // store the index in this entry
-                        entry.get_mut().push(i);
-                        // no need to put it in the sorted list, because we've already seen it (and
-                        // a|b|a matches the same things as a|b)
+            if let Some(el) = el {
+                if let &[tok] = &el[..] {
+                    if single_set.insert(tok) {
+                        // first time seeing this element
+                        single_map.insert(tok, i);
+                    } else {
+                        // we've seen this element before
+                        can_use_single_map = false;
                     }
                 }
+                indices.entry(SortByLen(el.clone())).or_default().push(i);
             }
         }
-        // let pattern = if can_use_set {
-        //     Regex::Set(set)
-        // } else {
-        //     Regex::Alternate(
-        //         sorted
-        //             .iter()
-        //             .rev()
-        //             .filter_map(|x| elements[x.value].string_or_none())
-        //             .cloned()
-        //             .map(Regex::Literal)
-        //             .collect(),
-        //     )
-        // };
+
+        let single_map = if can_use_single_map {
+            Some(single_map)
+        } else {
+            None
+        };
         Category {
             elements,
-            // pattern,
             indices,
+            single_map,
+            single_set,
             name,
         }
     }
-}
 
-/// An element of a category.
-#[derive(Clone, Debug)]
-pub enum Element {
-    /// A null element.
-    Zero,
-    /// A string of tokens.
-    String(Vec<Token>),
-}
-
-impl Element {
-    fn string_or_none(&self) -> Option<&Vec<Token>> {
-        match self {
-            Element::Zero => None,
-            Element::String(v) => Some(v),
+    pub fn capturing_matcher(
+        &self,
+        instruction_list: &mut Program<Engine>,
+        slot: u8,
+        reverse: bool,
+    ) {
+        // skip over the jump instruction
+        let start_of_category = instruction_list.len() + 2;
+        instruction_list.push(Instr::Jump(start_of_category));
+        let jump_instr = instruction_list.len();
+        // the actual destination of this jump will be filled in at the end of the function
+        instruction_list.push(Instr::Jump(0));
+        // match longer elements first
+        for (el, indices) in self.indices.iter().rev() {
+            if self.single_map.is_some() && el.0.len() == 1 {
+                // single-length elements to be handled with a single Consume::Category instruction
+                // we can break here because the elements are already sorted by length
+                break;
+            }
+            if let Some((&last, rest)) = indices.split_last() {
+                // 1 instruction for the split to the next element
+                // 3 instructions for each index except the last one
+                //   Split(to next index);
+                //   Category { slot, index };
+                //   Jump(to element match)
+                // plus 1 for the last index:
+                //   Category { slot, index };
+                let element_match_start = instruction_list.len() + 3 * rest.len() + 2;
+                // element match is 1 instruction per token, plus 1 for the jump to after the
+                // category
+                let next_element_start = element_match_start + el.0.len() + 1;
+                instruction_list.push(Instr::Split(next_element_start));
+                for &index in rest {
+                    let pc = instruction_list.len();
+                    instruction_list.extend([
+                        Instr::Split(pc + 3),
+                        Instr::Peek(Peek::Category { slot, index }),
+                        Instr::Jump(element_match_start),
+                    ]);
+                }
+                instruction_list.push(Instr::Peek(Peek::Category { slot, index: last }));
+                match_string(&el.0, instruction_list, reverse);
+                instruction_list.push(Instr::Jump(jump_instr));
+                debug_assert_eq!(instruction_list.len(), next_element_start);
+            }
         }
+        // handle single-length elements with a `Consume::Category`, if possible
+        if let Some(map) = self.single_map.clone() {
+            instruction_list.extend([
+                Instr::Consume(Consume::Category { slot, map }),
+                Instr::Jump(jump_instr),
+            ]);
+        }
+        // if we weren't able to use the map here, the last element will have a split pointing to
+        // this point in the program. since there are no more elements to match, we should put a
+        // reject here, ending that thread.
+        instruction_list.push(Instr::Reject);
+        let after_category_match = instruction_list.len();
+        instruction_list[jump_instr] = Instr::Jump(after_category_match);
+    }
+
+    pub fn non_capturing_matcher(&self, instruction_list: &mut Program<Engine>, reverse: bool) {
+        // skip over the jump instruction
+        let start_of_category = instruction_list.len() + 2;
+        instruction_list.push(Instr::Jump(start_of_category));
+        let jump_instr = instruction_list.len();
+        // the actual destination of this jump will be filled in at the end of the function
+        instruction_list.push(Instr::Jump(0));
+        // match longer elements first
+        for (el, _indices) in self.indices.iter().rev() {
+            if el.0.len() == 1 {
+                // single-length elements to be handled with a single Consume::Set instruction
+                // we can break here because the elements are already sorted by length
+                break;
+            }
+            // element match is 1 instruction per token, plus 1 for the split, and 1 for jump to
+            // after the category
+            let next_element_start = instruction_list.len() + el.0.len() + 2;
+            instruction_list.push(Instr::Split(next_element_start));
+            match_string(&el.0, instruction_list, reverse);
+            instruction_list.push(Instr::Jump(jump_instr));
+            debug_assert_eq!(
+                instruction_list.len(),
+                next_element_start,
+                "wrong number of instructions in instruction list: \
+                expected {next_element_start}, found {}.\n\
+                Full listing of instructions:\n{instruction_list}",
+                instruction_list.len(),
+            );
+        }
+        // handle single-length elements with a `Consume::Set`
+        instruction_list.extend([
+            Instr::Consume(Consume::Set(self.single_set.clone())),
+            Instr::Jump(jump_instr),
+        ]);
+        let after_category_match = instruction_list.len();
+        instruction_list[jump_instr] = Instr::Jump(after_category_match);
     }
 }
 
-/// A struct for sorting arbitrary data by an arbitrary key
-#[derive(Debug, Clone, Copy)]
-struct SortKey<T> {
-    pub key: usize,
-    pub value: T,
-}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SortByLen<T>(Vec<T>);
 
-impl<T, U> cmp::PartialEq<SortKey<U>> for SortKey<T> {
-    fn eq(&self, other: &SortKey<U>) -> bool {
-        self.key == other.key
+fn match_string(string: &[Token], program: &mut Program<Engine>, reverse: bool) {
+    let it = string
+        .iter()
+        .map(|&tok| Instr::Consume(Consume::Token(tok)));
+    if reverse {
+        program.extend(it.rev());
+    } else {
+        program.extend(it);
     }
 }
 
-impl<T> cmp::Eq for SortKey<T> {}
-
-impl<T, U> cmp::PartialOrd<SortKey<U>> for SortKey<T> {
-    fn partial_cmp(&self, other: &SortKey<U>) -> Option<cmp::Ordering> {
-        Some(self.key.cmp(&other.key))
+impl<T: cmp::Ord> cmp::Ord for SortByLen<T> {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.0
+            .len()
+            .cmp(&other.0.len())
+            .then_with(|| self.0.cmp(&other.0))
     }
 }
 
-impl<T> cmp::Ord for SortKey<T> {
-    fn cmp(&self, other: &SortKey<T>) -> cmp::Ordering {
-        self.key.cmp(&other.key)
+impl<T: cmp::Ord> cmp::PartialOrd for SortByLen<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{re::Program, token::tokenizer::tokenize};
+
+    use super::Category;
+
+    #[test]
+    fn simple() {
+        let elements = vec![
+            Some(tokenize("m")),
+            Some(tokenize("n")),
+            Some(tokenize("gn")),
+            Some(tokenize("ng")),
+        ];
+        let name = tokenize("N");
+        let category = Category::new(name, elements);
+        let mut program = Program::floating_start();
+        category.non_capturing_matcher(&mut program, false);
+        println!("{program}");
+        let test_string = tokenize("man");
+        assert_eq!(
+            program.exec(Default::default(), test_string.clone()).len(),
+            2
+        );
+
+        let mut program = Program::floating_start();
+        category.capturing_matcher(&mut program, 0, false);
+        println!("{program}");
+        let test_string = tokenize("man");
+        let matches = program.exec(Default::default(), test_string);
+        let indices = matches
+            .into_iter()
+            .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+
+        assert_eq!(indices, &[&[0], &[1]]);
+    }
+
+    #[test]
+    fn ambiguous_match() {
+        let elements = vec![
+            Some(tokenize("m")),
+            Some(tokenize("n")),
+            Some(tokenize("gn")),
+            Some(tokenize("ng")),
+        ];
+        let name = tokenize("N");
+        let category = Category::new(name, elements);
+
+        let mut program = Program::new();
+        category.capturing_matcher(&mut program, 0, false);
+        category.capturing_matcher(&mut program, 1, false);
+        println!("{program}");
+        let test_string = tokenize("ngn");
+        let matches = program.exec(Default::default(), test_string);
+        let indices = matches
+            .into_iter()
+            .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        assert_eq!(indices, &[&[3, 1], &[1, 2]]);
+
+        let mut program = Program::floating_start();
+        category.capturing_matcher(&mut program, 0, false);
+        println!("{program}");
+        let test_string = tokenize("ng");
+        let matches = program.exec(Default::default(), test_string);
+        let indices = matches
+            .into_iter()
+            .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        assert_eq!(indices, &[&[1], &[3]]);
+
+        let mut program = Program::floating_start();
+        category.capturing_matcher(&mut program, 0, false);
+        println!("{program}");
+        let test_string = tokenize("gn");
+        let matches = program.exec(Default::default(), test_string);
+        let indices = matches
+            .into_iter()
+            .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        assert_eq!(indices, &[&[2], &[1]]);
     }
 }

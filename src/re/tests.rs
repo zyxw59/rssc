@@ -6,20 +6,21 @@ pub struct TestEngine {
     is_word: bool,
 }
 
-impl Engine<char> for TestEngine {
-    /// Number of save slots.
-    type Init = usize;
-    type Consume = TestConsume;
-    type Peek = TestPeek;
-
-    fn initialize(num_slots: &Self::Init) -> Self {
+impl TestEngine {
+    fn new(num_slots: usize) -> Self {
         TestEngine {
-            saves: vec![None; *num_slots],
+            saves: vec![None; num_slots],
             is_word: false,
         }
     }
+}
 
-    fn consume(&mut self, args: &Self::Consume, _index: usize, token: &char) -> bool {
+impl Engine for TestEngine {
+    type Token = char;
+    type Consume = TestConsume;
+    type Peek = TestPeek;
+
+    fn consume(&mut self, args: &Self::Consume, _index: usize, token: &Self::Token) -> bool {
         self.is_word = !token.is_whitespace();
         match args {
             TestConsume::Any => true,
@@ -27,7 +28,7 @@ impl Engine<char> for TestEngine {
         }
     }
 
-    fn peek(&mut self, args: &Self::Peek, index: usize, token: Option<&char>) -> bool {
+    fn peek(&mut self, args: &Self::Peek, index: usize, token: Option<&Self::Token>) -> bool {
         match args {
             TestPeek::WordBoundary => token
                 .as_ref()
@@ -54,7 +55,7 @@ pub enum TestPeek {
 fn program() {
     use self::program::Instr::*;
     // /(ab?)(b?c)\b/
-    let prog: Vec<program::Instr<char, TestEngine>> = vec![
+    let prog: Vec<program::Instr<TestEngine>> = vec![
         // 0: *? quantifier
         JSplit(3),
         // 1: match a token
@@ -90,9 +91,8 @@ fn program() {
         // 16: end of match
         Match,
     ];
-    let num_slots = 6;
-    let program = program::Program::new(prog, num_slots);
-    let saves = program.exec("ducabc ".chars());
+    let program = program::Program { prog };
+    let saves = program.exec(TestEngine::new(6), "ducabc ".chars());
     assert_eq!(
         saves.iter().map(|engine| &engine.saves).collect::<Vec<_>>(),
         &[
@@ -100,7 +100,7 @@ fn program() {
             &[Some(3), Some(6), Some(3), Some(4), Some(4), Some(6)],
         ]
     );
-    let saves = program.exec("ducabc".chars());
+    let saves = program.exec(TestEngine::new(6), "ducabc".chars());
     assert_eq!(
         saves.iter().map(|engine| &engine.saves).collect::<Vec<_>>(),
         &[
@@ -108,6 +108,6 @@ fn program() {
             &[Some(3), Some(6), Some(3), Some(4), Some(4), Some(6)],
         ]
     );
-    let saves = program.exec("ducabcd".chars());
+    let saves = program.exec(TestEngine::new(6), "ducabcd".chars());
     assert!(saves.is_empty());
 }
