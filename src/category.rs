@@ -271,7 +271,7 @@ mod tests {
             .into_iter()
             .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
             .collect::<Vec<_>>();
-        assert_eq!(indices, &[&[1], &[3]]);
+        assert_eq!(indices, &[&[3], &[1]]);
 
         let mut program = Program::floating_start();
         category.capturing_matcher(&mut program, 0, false);

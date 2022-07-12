@@ -34,8 +34,8 @@ pub enum Instr<E: Engine> {
 /// positions
 #[derive(Debug)]
 struct Thread<E> {
-    /// Pointer to current instruction
-    pc: InstrPtr,
+    /// Pointer to current instruction, or `None` if the thread is complete
+    pc: Option<InstrPtr>,
     /// Implementation-specific state
     engine: E,
 }
@@ -43,7 +43,15 @@ struct Thread<E> {
 impl<E> Thread<E> {
     /// Create a new `Thread` with the specified instruction pointer and the given state.
     fn new(pc: InstrPtr, engine: E) -> Self {
-        Thread { pc, engine }
+        Thread {
+            pc: Some(pc),
+            engine,
+        }
+    }
+
+    /// Create a new `Thread` with the given state and no instruction pointer.
+    fn new_match(engine: E) -> Self {
+        Thread { pc: None, engine }
     }
 }
 
@@ -114,6 +122,10 @@ impl<E> ThreadList<E> {
                 self.threads.push(Thread::new(pc, engine));
             }
         }
+    }
+
+    fn add_match(&mut self, engine: E) {
+        self.threads.push(Thread::new_match(engine))
     }
 }
 
@@ -196,21 +208,11 @@ impl<E: Engine> Program<E> {
             // iterate over active threads, draining the list so we can reuse it without
             // reallocating
             for mut th in &mut curr {
-                match &self[th.pc] {
-                    Instr::Any => {
-                        next.add_thread(
-                            th.pc + 1,
-                            i + 1,
-                            input.peek().map(|(_i, tok)| tok),
-                            self,
-                            &mut prune_list,
-                            th.engine,
-                        );
-                    }
-                    Instr::Consume(args) => {
-                        if th.engine.consume(args, i, &tok_i) {
+                if let Some(pc) = th.pc {
+                    match &self[pc] {
+                        Instr::Any => {
                             next.add_thread(
-                                th.pc + 1,
+                                pc + 1,
                                 i + 1,
                                 input.peek().map(|(_i, tok)| tok),
                                 self,
@@ -218,20 +220,32 @@ impl<E: Engine> Program<E> {
                                 th.engine,
                             );
                         }
-                    }
-                    Instr::Match => {
+                        Instr::Consume(args) => {
+                            if th.engine.consume(args, i, &tok_i) {
+                                next.add_thread(
+                                    pc + 1,
+                                    i + 1,
+                                    input.peek().map(|(_i, tok)| tok),
+                                    self,
+                                    &mut prune_list,
+                                    th.engine,
+                                );
+                            }
+                        }
                         // add the saved locations to the final list
-                        matches.push(th.engine);
+                        Instr::Match => next.add_match(th.engine),
+                        // These instructions are handled in add_thread, so the current thread should
+                        // never point to one of them
+                        Instr::Split(_)
+                        | Instr::JSplit(_)
+                        | Instr::Jump(_)
+                        | Instr::Peek(_)
+                        | Instr::Reject => {
+                            unreachable!();
+                        }
                     }
-                    // These instructions are handled in add_thread, so the current thread should
-                    // never point to one of them
-                    Instr::Split(_)
-                    | Instr::JSplit(_)
-                    | Instr::Jump(_)
-                    | Instr::Peek(_)
-                    | Instr::Reject => {
-                        unreachable!();
-                    }
+                } else {
+                    next.threads.push(th)
                 }
             }
             // `next` becomes list of active threads, and `curr` (empty after iteration) can hold
@@ -239,9 +253,9 @@ impl<E: Engine> Program<E> {
             mem::swap(&mut curr, &mut next);
         }
 
-        // now iterate over remaining threads, to check for pending match instructions
+        // now iterate over remaining threads, to check for matches
         for th in &mut curr {
-            if let Instr::Match = self[th.pc] {
+            if let Instr::Match = th.pc.map(|pc| &self[pc]).unwrap_or(&Instr::Match) {
                 matches.push(th.engine);
             }
             // anything else is a failed match
