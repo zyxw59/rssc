@@ -209,7 +209,6 @@ mod tests {
         let mut program = Program::floating_start();
         category.capturing_matcher(&mut program, 0, false);
         println!("{program}");
-        let test_string = tokenize("man");
         let matches = program.exec(Default::default(), test_string);
         let indices = matches
             .into_iter()
