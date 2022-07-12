@@ -5,7 +5,7 @@ use std::ops::Add;
 pub mod segment;
 pub mod tokenizer;
 
-pub use segment::{Segment, SegmentMap};
+pub use segment::SegmentMap;
 pub use tokenizer::Tokens;
 
 macro_rules! enum_const {

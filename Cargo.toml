@@ -10,3 +10,6 @@ indexmap = "1.9.1"
 thiserror = "1.0.31"
 unicode-normalization = "0.1"
 unicode-general-category = "0.5.1"
+
+[dev-dependencies]
+utf32-lit = "1.2.0"

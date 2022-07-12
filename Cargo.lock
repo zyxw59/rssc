@@ -62,6 +62,7 @@ dependencies = [
  "thiserror",
  "unicode-general-category",
  "unicode-normalization",
+ "utf32-lit",
 ]
 
 [[package]]
@@ -129,4 +130,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "854cbdc4f7bc6ae19c820d44abdc3277ac3e1b2b93db20a636825d9322fb60e6"
 dependencies = [
  "tinyvec",
+]
+
+[[package]]
+name = "utf32-lit"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcb727f4e0adf227e942ddcab4f85f5d23c0f1a3b7b2e07d5230ca9775f3d36f"
+dependencies = [
+ "quote",
+ "syn",
 ]

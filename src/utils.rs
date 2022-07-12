@@ -1,6 +1,6 @@
 //! Utility types.
 
-use std::fmt;
+use std::{cmp, fmt};
 
 /// A boolean expression, consisting of nested And, Or, and Not operators.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -192,5 +192,24 @@ impl<T: fmt::Display> fmt::Display for BooleanExpr<T> {
             BooleanExpr::True => f.write_str("True"),
             BooleanExpr::False => f.write_str("False"),
         }
+    }
+}
+
+/// A wrapper around a [`Vec`] which sorts by length first.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SortByLen<T>(pub Vec<T>);
+
+impl<T: cmp::Ord> cmp::Ord for SortByLen<T> {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.0
+            .len()
+            .cmp(&other.0.len())
+            .then_with(|| self.0.cmp(&other.0))
+    }
+}
+
+impl<T: cmp::Ord> cmp::PartialOrd for SortByLen<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }

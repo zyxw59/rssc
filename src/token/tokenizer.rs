@@ -7,7 +7,7 @@ use std::iter::Peekable;
 
 use unicode_normalization::UnicodeNormalization;
 
-use super::{Segment, SegmentMap, Token};
+use super::{SegmentMap, Token};
 use crate::{
     re::{Engine, Instr, Program},
     unicode::{is_combining_double, is_modifier},
@@ -185,7 +185,6 @@ pub struct Tokens<'s, R> {
     out_buffer: Vec<Token>,
     index: usize,
     line: usize,
-    token_map: Vec<Segment>,
     segment_map: &'s mut SegmentMap,
     re: Program<TokenizerEngine>,
 }
@@ -199,7 +198,6 @@ impl<'s, R: BufRead> Tokens<'s, R> {
             out_buffer: Vec::new(),
             index: 0,
             line: 0,
-            token_map: Vec::new(),
             segment_map,
             re,
         }
@@ -228,13 +226,9 @@ impl<'s, R: BufRead> Tokens<'s, R> {
             self.line += 1;
             for (start, end) in indices.iter().zip(indices[1..].iter()) {
                 // extract the sgement
-                let seg = chars.by_ref().take(end - start).collect::<Segment>();
+                let seg = chars.by_ref().take(end - start).collect::<Vec<_>>();
                 // get the token corresponding to the segment
-                let tok = self.segment_map.get_or_insert(seg.clone());
-                // if the segment was new, push it into the token map
-                if tok >= Token::from_index(self.token_map.len()) {
-                    self.token_map.push(seg);
-                }
+                let tok = self.segment_map.get_or_insert(&seg);
                 // push the token into the output buffer
                 self.out_buffer.push(tok);
             }
@@ -296,11 +290,12 @@ pub enum Error {
 mod tests {
     use super::*;
     use unicode_normalization::UnicodeNormalization;
+    use utf32_lit::utf32;
 
     #[test]
     fn multiple_possible_segmentations() {
         let line = "antś\n".nfd();
-        let segments = SegmentMap::from_list(&[vec!['a', 'n'], vec!['n', 't'], vec!['t', 's']]);
+        let segments = SegmentMap::from_iter(utf32!(["an", "nt", "ts"]));
         let prog = matcher(&segments);
         println!("{prog}");
 
@@ -311,9 +306,22 @@ mod tests {
     }
 
     #[test]
+    fn short_and_long_segments() {
+        let line = "shtshth".nfd();
+        let segments = SegmentMap::from_iter(utf32!(["sh", "tsh", "th"]));
+        let prog = matcher(&segments);
+        println!("{prog}");
+
+        let matches = prog.exec(Default::default(), line);
+        assert_eq!(matches.len(), 1);
+        let indices = &*matches.first().unwrap().indices;
+        assert_eq!(indices, &[0, 2, 5, 7]);
+    }
+
+    #[test]
     fn combining_double() {
         let line = "t͜s\n".nfd();
-        let segments = SegmentMap::from_list(&[]);
+        let segments = SegmentMap::from_iter([]);
         let prog = matcher(&segments);
         println!("{prog}");
 
@@ -326,7 +334,7 @@ mod tests {
     #[test]
     fn backslash() {
         let line = "\\.\n".nfd();
-        let segments = SegmentMap::from_list(&[]);
+        let segments = SegmentMap::from_iter([]);
         let prog = matcher(&segments);
         println!("{prog}");
 
@@ -339,7 +347,7 @@ mod tests {
     #[test]
     fn backslash_newline() {
         let line = "\\\n".nfd();
-        let segments = SegmentMap::from_list(&[]);
+        let segments = SegmentMap::from_iter([]);
         let prog = matcher(&segments);
         println!("{prog}");
 

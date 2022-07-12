@@ -1,14 +1,12 @@
 //! A [`Category`] is a set of sounds to be used in patterns and replacements.
 
-use std::{
-    cmp,
-    collections::{BTreeMap, HashMap, HashSet},
-};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::{
     re::{Instr, Program},
     rule::re::{Consume, Engine, Peek},
     token::Token,
+    utils::SortByLen,
 };
 
 /// A category name.
@@ -172,9 +170,6 @@ impl Category {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SortByLen<T>(Vec<T>);
-
 fn match_string(string: &[Token], program: &mut Program<Engine>, reverse: bool) {
     let it = string
         .iter()
@@ -183,21 +178,6 @@ fn match_string(string: &[Token], program: &mut Program<Engine>, reverse: bool) 
         program.extend(it.rev());
     } else {
         program.extend(it);
-    }
-}
-
-impl<T: cmp::Ord> cmp::Ord for SortByLen<T> {
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.0
-            .len()
-            .cmp(&other.0.len())
-            .then_with(|| self.0.cmp(&other.0))
-    }
-}
-
-impl<T: cmp::Ord> cmp::PartialOrd for SortByLen<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
     }
 }
 

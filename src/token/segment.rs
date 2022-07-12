@@ -1,119 +1,78 @@
-use std::collections::hash_map::Keys;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+
+use unicode_normalization::UnicodeNormalization;
 
 use super::Token;
-
-pub type Segment = Vec<char>;
+use crate::utils::SortByLen;
 
 /// A mapping from `Segment` to `Token` values.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct SegmentMap {
-    /// A list of `HashMap`s, sorted by key length -- keys of length 1 will be found in `map[0]`,
-    /// keys of length 2 will be found in `maps[1]`, and so on.
-    maps: Vec<HashMap<Segment, Token>>,
-    /// The largest `Token` value assigned to a `Segment` in the map.
-    max_token: Token,
+    map: BTreeMap<SortByLen<char>, Token>,
+    reverse_map: Vec<Vec<char>>,
 }
 
 impl SegmentMap {
     /// Creates a new, empty `SegmentMap`
     pub fn new() -> SegmentMap {
-        SegmentMap {
-            maps: Vec::new(),
-            max_token: Token(0x7F),
-        }
+        Default::default()
     }
 
-    /// Generates a mapping from a `Vec` of `Segment` values, where the index in the vector is the
-    /// offset from `0x80` of the `Token` value (e.g. `Token(0x80)` will be found at index 0,
-    /// `Token(0x81)` will be found at index 1, etc.).
-    pub fn from_list(list: &[Segment]) -> SegmentMap {
-        let mut map = SegmentMap {
-            maps: Vec::new(),
-            max_token: Token(0x7F),
-        };
-        for (tok, seg) in list.iter().enumerate() {
-            map.pad(seg.len());
-            map.maps[seg.len() - 1].insert(seg.clone(), Token::from_index(tok));
-        }
-        if !list.is_empty() {
-            map.max_token = Token::from_index(list.len() - 1);
-        }
-        map
-    }
-
-    /// Retrieves the `Token` associated with a given `Segment`, or adds the `Segment` to the map
-    /// at the next available value.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `key` is zero-length.
-    pub fn get_or_insert(&mut self, key: Segment) -> Token {
-        if key.is_empty() {
-            panic!("Segment with zero length");
-        }
-        match *key {
+    /// Retrieves the `Token` associated with a given segment, or adds the segment to the map at
+    /// the next available value.
+    pub fn get_or_insert(&mut self, segment: &[char]) -> Token {
+        let segment = segment.iter().copied().nfd().collect::<Vec<_>>();
+        // check for ASCII or escaped control characters
+        match *segment {
             [x] if x <= '\x7F' => Token::try_from_u8(x as u8),
             ['\\', x] if x <= '\x7F' => Token::try_from_u8_escaped(x as u8),
             _ => None,
         }
         .unwrap_or_else(|| {
-            self.pad(key.len());
-            let entry = self.maps[key.len() - 1].entry(key);
-            let max_token = self.max_token + 1;
-            let token = *entry.or_insert(max_token);
-            if token > self.max_token {
-                self.max_token = token;
-            }
-            token
+            *self
+                .map
+                .entry(SortByLen(segment.clone()))
+                .or_insert_with(|| {
+                    let idx = self.reverse_map.len();
+                    self.reverse_map.push(segment);
+                    Token::from_index(idx)
+                })
         })
     }
 
+    /// Gets the segment corresponding to a given token, if that token is present in the map.
+    /// Tokens less than 0x80 (i.e. ASCII characters and control characters) will not be returned.
+    pub fn get_segment(&mut self, token: Token) -> Option<&[char]> {
+        if token < Token(0x80) {
+            // ASCII tokens are not handled here
+            None
+        } else {
+            self.reverse_map
+                .get((token.0 - 0x80) as usize)
+                .map(|seg| seg.as_slice())
+        }
+    }
+
     /// Returns an iterator over the `Segment`s in order of decreasing length.
-    pub fn iter(&self) -> SegmentMapIter {
-        SegmentMapIter::new(&self.maps)
+    pub fn iter(&self) -> impl Iterator<Item = &[char]> {
+        self.map.keys().rev().map(|seg| &*seg.0)
     }
+}
 
-    /// Pads the internal vector with empty `HashMap`s to a given length.
-    fn pad(&mut self, len: usize) {
-        if len > self.maps.len() {
-            self.maps.resize_with(len, HashMap::new)
+impl<'s> FromIterator<&'s [char]> for SegmentMap {
+    /// Generates a mapping from an iterator of segments, where the first segment is mapped as
+    /// `Token(0x80)`, the second segment as `Token(0x81)`, etc.
+    ///
+    /// Unicode normalization will be applied automatically, and any duplicate segments will be
+    /// skipped.
+    fn from_iter<T>(list: T) -> SegmentMap
+    where
+        T: IntoIterator<Item = &'s [char]>,
+    {
+        let mut map = Self::new();
+        for seg in list {
+            map.get_or_insert(seg);
         }
-    }
-}
-
-impl Default for SegmentMap {
-    fn default() -> Self {
-        SegmentMap::new()
-    }
-}
-
-/// A struct to iterate over the `Segment`s of a `SegmentMap` in order of decreasing length.
-pub struct SegmentMapIter<'a> {
-    maps: &'a [HashMap<Segment, Token>],
-    keys: Option<Keys<'a, Segment, Token>>,
-}
-
-impl<'a> SegmentMapIter<'a> {
-    fn new(maps: &[HashMap<Segment, Token>]) -> SegmentMapIter {
-        SegmentMapIter { maps, keys: None }
-    }
-}
-
-impl<'a> Iterator for SegmentMapIter<'a> {
-    type Item = &'a Segment;
-
-    fn next(&mut self) -> Option<&'a Segment> {
-        loop {
-            if let Some(next) = self.keys.as_mut().and_then(Keys::next) {
-                return Some(next);
-            }
-            if let Some((last, rest)) = self.maps.split_last() {
-                self.keys = Some(last.keys());
-                self.maps = rest;
-            } else {
-                return None;
-            }
-        }
+        map
     }
 }
