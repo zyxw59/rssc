@@ -251,7 +251,7 @@ where
                 let value = self.parse_regex();
                 match self.next() {
                     Some(Token::CloseParen) => value,
-                    Some(_) => unreachable!("in parse_atom/OpenParen"),
+                    Some(tok) => Err(Error::Token(self.index() - 1, tok)),
                     None => Err(Error::EndOfInput),
                 }
             }
@@ -543,6 +543,14 @@ mod tests {
         let mut parser = Parser::new(input);
         let result = parser.parse_regex();
         assert_eq!(result, Err(Error::EndOfInput));
+    }
+
+    #[test]
+    fn missing_close_2() {
+        let input = tokenize("(a_");
+        let mut parser = Parser::new(input);
+        let result = parser.parse_regex();
+        assert_eq!(result, Err(Error::Token(2, Token::Underscore)));
     }
 
     #[test]
