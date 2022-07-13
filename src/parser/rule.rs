@@ -610,18 +610,18 @@ mod tests {
             Ok(BooleanExpr::Or(vec![
                 BooleanExpr::Value(Environment {
                     before: Pattern::Literal(Token(b'a' as u16)),
-                    after: Pattern::Literal(Token(b'b' as u16))
+                    after: Pattern::Literal(Token(b'b' as u16)),
                 }),
                 BooleanExpr::Value(Environment {
                     before: Pattern::Literal(Token(b'c' as u16)),
-                    after: Pattern::Literal(Token(b'd' as u16))
+                    after: Pattern::Literal(Token(b'd' as u16)),
                 }),
             ]))
         );
     }
 
     #[test]
-    fn environment_nested() {
+    fn environment_nested_1() {
         let input = tokenize("|(&(a_ _b)c_d)");
         let mut parser = Parser::new(input);
         let result = parser.parse_environment();
@@ -635,13 +635,39 @@ mod tests {
                     }),
                     BooleanExpr::Value(Environment {
                         before: Pattern::Concat(vec![]),
-                        after: Pattern::Literal(Token(b'b' as u16))
+                        after: Pattern::Literal(Token(b'b' as u16)),
                     }),
                 ]),
                 BooleanExpr::Value(Environment {
                     before: Pattern::Literal(Token(b'c' as u16)),
-                    after: Pattern::Literal(Token(b'd' as u16))
+                    after: Pattern::Literal(Token(b'd' as u16)),
                 }),
+            ]))
+        );
+    }
+
+    #[test]
+    fn environment_nested_2() {
+        let input = tokenize("&(|(a_ _b) ! c_)");
+        let mut parser = Parser::new(input);
+        let result = parser.parse_environment();
+        assert_eq!(
+            result,
+            Ok(BooleanExpr::And(vec![
+                BooleanExpr::Or(vec![
+                    BooleanExpr::Value(Environment {
+                        before: Pattern::Literal(Token(b'a' as u16)),
+                        after: Pattern::Concat(vec![]),
+                    }),
+                    BooleanExpr::Value(Environment {
+                        before: Pattern::Concat(vec![]),
+                        after: Pattern::Literal(Token(b'b' as u16)),
+                    }),
+                ]),
+                BooleanExpr::Not(Box::new(BooleanExpr::Value(Environment {
+                    before: Pattern::Literal(Token(b'c' as u16)),
+                    after: Pattern::Concat(vec![]),
+                }))),
             ]))
         );
     }

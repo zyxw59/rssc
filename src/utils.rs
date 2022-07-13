@@ -152,11 +152,11 @@ impl<T> BooleanExpr<T> {
                         BooleanExpr::Or(xs)
                     }
                 }
-                BooleanExpr::Not(_) => {
+                BooleanExpr::Not(x) => {
                     // temporary, so that we can move out of `self`
-                    let this = std::mem::replace(self, BooleanExpr::False).not();
-                    *self = this;
-                    self.coalesce();
+                    let mut new_x = std::mem::replace(&mut **x, BooleanExpr::False);
+                    new_x.coalesce();
+                    *self = new_x.not();
                 }
                 _ => {}
             }
@@ -169,26 +169,50 @@ impl<T: fmt::Display> fmt::Display for BooleanExpr<T> {
         match self {
             BooleanExpr::Value(x) => fmt::Display::fmt(x, f),
             BooleanExpr::And(xs) => {
-                f.write_str("&(")?;
-                if let Some((first, rest)) = xs.split_first() {
-                    fmt::Display::fmt(first, f)?;
-                    for x in rest {
-                        write!(f, " {x}")?;
+                if f.alternate() {
+                    f.write_str("&(")?;
+                    if let Some((first, rest)) = xs.split_first() {
+                        fmt::Display::fmt(first, f)?;
+                        for x in rest {
+                            write!(f, " {x}")?;
+                        }
                     }
+                    f.write_str(")")
+                } else {
+                    f.write_str("And(\n")?;
+                    for x in xs {
+                        writeln!(f, "{x},")?;
+                    }
+                    f.write_str(")")
                 }
-                f.write_str(")")
             }
             BooleanExpr::Or(xs) => {
-                f.write_str("|(")?;
-                if let Some((first, rest)) = xs.split_first() {
-                    fmt::Display::fmt(first, f)?;
-                    for x in rest {
-                        write!(f, " {x}")?;
+                if f.alternate() {
+                    f.write_str("|(")?;
+                    if let Some((first, rest)) = xs.split_first() {
+                        fmt::Display::fmt(first, f)?;
+                        for x in rest {
+                            write!(f, " {x}")?;
+                        }
                     }
+                    f.write_str(")")
+                } else {
+                    f.write_str("Or(\n")?;
+                    for x in xs {
+                        writeln!(f, "{x},")?;
+                    }
+                    f.write_str(")")
                 }
-                f.write_str(")")
             }
-            BooleanExpr::Not(x) => write!(f, "!{x}"),
+            BooleanExpr::Not(x) => {
+                if f.alternate() {
+                    write!(f, "!{x}")
+                } else {
+                    f.write_str("Not(\n")?;
+                    fmt::Display::fmt(x, f)?;
+                    f.write_str(")")
+                }
+            }
             BooleanExpr::True => f.write_str("True"),
             BooleanExpr::False => f.write_str("False"),
         }
@@ -211,5 +235,18 @@ impl<T: cmp::Ord> cmp::Ord for SortByLen<T> {
 impl<T: cmp::Ord> cmp::PartialOrd for SortByLen<T> {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BooleanExpr;
+
+    #[test]
+    fn coalesce() {
+        let mut x = BooleanExpr::Value("").not();
+        println!("{x}");
+        x.coalesce();
+        assert_eq!(x, BooleanExpr::Not(Box::new(BooleanExpr::Value(""))));
     }
 }

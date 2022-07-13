@@ -47,7 +47,7 @@ impl Rule {
                 environment: BooleanExpr::True,
             })
         } else {
-            let mut search = Program::new();
+            let mut search = Program::floating_start();
             self.search.matcher(&mut search, categories)?;
             let environment = self.environment.try_map(|env| env.matcher(categories))?;
             Ok(RuleMatcher {
@@ -374,6 +374,12 @@ impl RuleMatcher {
     }
 }
 
+impl fmt::Display for RuleMatcher {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Search:\n{}Environment:\n{}", self.search, self.environment)
+    }
+}
+
 #[derive(Debug)]
 struct EnvironmentMatcher {
     before: Program<re::Engine>,
@@ -392,6 +398,12 @@ impl EnvironmentMatcher {
             .exec_multiple(states, string[..start].iter().rev().copied());
         self.after
             .exec_multiple(states, string[end..].iter().copied())
+    }
+}
+
+impl fmt::Display for EnvironmentMatcher {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Before:\n{}After:\n{}", self.before, self.after)
     }
 }
 
@@ -477,7 +489,7 @@ mod tests {
         let mut rule = Parser::new(tokens).parse_rule().unwrap();
 
         let matcher = rule.matcher(&categories).unwrap();
-        println!("{}", matcher.search);
+        println!("{}", matcher);
 
         let input = tokenize_with_segment_map("potʃato", &mut segment_map);
         let matches = matcher.matches(&input);
@@ -486,7 +498,26 @@ mod tests {
                 .iter()
                 .map(|m| m.replace_indices())
                 .collect::<Vec<_>>(),
-            &[Some((1, 2)), Some((1, 2)), Some((4, 5))]
+            &[Some((1, 2)), Some((1, 2)), Some((4, 5))],
+        );
+    }
+
+    #[test]
+    fn complex_environment() {
+        let (categories, mut segment_map) = categories();
+        let tokens = tokenize_with_segment_map("{V} > 0 / &(|({V}_ _{P}) !_{N})", &mut segment_map);
+        let mut rule = Parser::new(tokens).parse_rule().unwrap();
+        let matcher = rule.matcher(&categories).unwrap();
+        println!("{}", matcher);
+
+        let input = tokenize_with_segment_map("aonepia", &mut segment_map);
+        let matches = matcher.matches(&input);
+        assert_eq!(
+            matches
+                .iter()
+                .map(|m| m.replace_indices())
+                .collect::<Vec<_>>(),
+            &[Some((3, 4)), Some((6, 7))],
         );
     }
 }
