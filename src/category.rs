@@ -5,14 +5,13 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use crate::{
     re::{Instr, Program},
     rule::re::{Consume, Engine, Peek},
-    token::Token,
-    utils::SortByLen,
+    token::{Token, TokenStr, TokenString},
 };
 
 /// A category name.
-pub type Ident = Vec<Token>;
+pub type Ident = TokenString;
 /// An element of a category. `None` represents a gap in the category.
-pub type Element = Option<Vec<Token>>;
+pub type Element = Option<TokenString>;
 /// A map from names to categories.
 pub type Categories = HashMap<Ident, Category>;
 
@@ -23,7 +22,7 @@ pub struct Category {
     elements: Vec<Element>,
     /// A map from elements to the indices of those elements. Note that an element might correspond
     /// to multiple indices.
-    indices: BTreeMap<SortByLen<Token>, Vec<usize>>,
+    indices: BTreeMap<TokenString, Vec<usize>>,
     /// A map from single-token elements to the indices of those elements.
     /// Only populated if none of those elements are repeated.
     single_map: Option<HashMap<Token, usize>>,
@@ -37,7 +36,7 @@ impl Category {
     /// Constructs a category from a name and a vector of elements
     pub fn new(name: Ident, elements: Vec<Element>) -> Category {
         let n = elements.len();
-        let mut indices = BTreeMap::<_, Vec<usize>>::new();
+        let mut indices = BTreeMap::<TokenString, Vec<usize>>::new();
         let mut single_set = HashSet::with_capacity(n);
         let mut single_map = HashMap::with_capacity(n);
         let mut can_use_single_map = true;
@@ -52,7 +51,7 @@ impl Category {
                         can_use_single_map = false;
                     }
                 }
-                indices.entry(SortByLen(el.clone())).or_default().push(i);
+                indices.entry(el.clone()).or_default().push(i);
             }
         }
 
@@ -84,7 +83,7 @@ impl Category {
         instruction_list.push(Instr::Jump(0));
         // match longer elements first
         for (el, indices) in self.indices.iter().rev() {
-            if self.single_map.is_some() && el.0.len() == 1 {
+            if self.single_map.is_some() && el.len() == 1 {
                 // single-length elements to be handled with a single Consume::Category instruction
                 // we can break here because the elements are already sorted by length
                 break;
@@ -100,7 +99,7 @@ impl Category {
                 let element_match_start = instruction_list.len() + 3 * rest.len() + 2;
                 // element match is 1 instruction per token, plus 1 for the jump to after the
                 // category
-                let next_element_start = element_match_start + el.0.len() + 1;
+                let next_element_start = element_match_start + el.len() + 1;
                 instruction_list.push(Instr::Split(next_element_start));
                 for &index in rest {
                     let pc = instruction_list.len();
@@ -111,7 +110,7 @@ impl Category {
                     ]);
                 }
                 instruction_list.push(Instr::Peek(Peek::Category { slot, index: last }));
-                match_string(&el.0, instruction_list, reverse);
+                match_string(el, instruction_list, reverse);
                 instruction_list.push(Instr::Jump(jump_instr));
                 debug_assert_eq!(instruction_list.len(), next_element_start);
             }
@@ -140,16 +139,16 @@ impl Category {
         instruction_list.push(Instr::Jump(0));
         // match longer elements first
         for (el, _indices) in self.indices.iter().rev() {
-            if el.0.len() == 1 {
+            if el.len() == 1 {
                 // single-length elements to be handled with a single Consume::Set instruction
                 // we can break here because the elements are already sorted by length
                 break;
             }
             // element match is 1 instruction per token, plus 1 for the split, and 1 for jump to
             // after the category
-            let next_element_start = instruction_list.len() + el.0.len() + 2;
+            let next_element_start = instruction_list.len() + el.len() + 2;
             instruction_list.push(Instr::Split(next_element_start));
-            match_string(&el.0, instruction_list, reverse);
+            match_string(el, instruction_list, reverse);
             instruction_list.push(Instr::Jump(jump_instr));
             debug_assert_eq!(
                 instruction_list.len(),
@@ -170,7 +169,7 @@ impl Category {
     }
 }
 
-fn match_string(string: &[Token], program: &mut Program<Engine>, reverse: bool) {
+fn match_string(string: &TokenStr, program: &mut Program<Engine>, reverse: bool) {
     let it = string
         .iter()
         .map(|&tok| Instr::Consume(Consume::Token(tok)));

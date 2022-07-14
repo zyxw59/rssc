@@ -9,6 +9,7 @@ pub mod tokenizer;
 
 use escape::{Escape, EscapeArgs};
 pub use segment::SegmentMap;
+pub use string::{TokenStr, TokenString};
 pub use tokenizer::Tokens;
 
 macro_rules! enum_const {

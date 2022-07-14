@@ -420,7 +420,7 @@ mod tests {
         assert_eq!(
             result,
             Ok(Pattern::Category(Category {
-                name: vec![Token(b'C' as u16)],
+                name: vec![Token(b'C' as u16)].into(),
                 number: None,
             }))
         );
@@ -434,7 +434,7 @@ mod tests {
         assert_eq!(
             result,
             Ok(Pattern::Category(Category {
-                name: vec![Token(b'C' as u16)],
+                name: vec![Token(b'C' as u16)].into(),
                 number: Some(3),
             }))
         );
@@ -587,7 +587,7 @@ mod tests {
             Ok(Replace(vec![
                 ReplaceTok::Token(Token(b'a' as u16)),
                 ReplaceTok::Category(Category {
-                    name: vec![Token(b'C' as u16)],
+                    name: vec![Token(b'C' as u16)].into(),
                     number: Some(1),
                 }),
             ]))

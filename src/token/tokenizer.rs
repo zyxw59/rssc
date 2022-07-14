@@ -7,7 +7,7 @@ use std::iter::Peekable;
 
 use unicode_normalization::UnicodeNormalization;
 
-use super::{SegmentMap, Token};
+use super::{SegmentMap, Token, TokenString};
 use crate::{
     re::{Engine, Instr, Program},
     unicode::{is_combining_double, is_modifier},
@@ -166,12 +166,12 @@ fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
 }
 
 #[cfg(test)]
-pub(crate) fn tokenize(input: &str) -> Vec<Token> {
+pub(crate) fn tokenize(input: &str) -> TokenString {
     tokenize_with_segment_map(input, &mut Default::default())
 }
 
 #[cfg(test)]
-pub(crate) fn tokenize_with_segment_map(input: &str, segment_map: &mut SegmentMap) -> Vec<Token> {
+pub(crate) fn tokenize_with_segment_map(input: &str, segment_map: &mut SegmentMap) -> TokenString {
     Tokens::new(input.as_bytes(), segment_map)
         .collect::<Result<_, _>>()
         .unwrap()
@@ -182,7 +182,7 @@ pub(crate) fn tokenize_with_segment_map(input: &str, segment_map: &mut SegmentMa
 pub struct Tokens<'s, R> {
     input: R,
     in_buffer: String,
-    out_buffer: Vec<Token>,
+    out_buffer: TokenString,
     index: usize,
     line: usize,
     segment_map: &'s mut SegmentMap,
@@ -195,7 +195,7 @@ impl<'s, R: BufRead> Tokens<'s, R> {
         Tokens {
             input,
             in_buffer: String::new(),
-            out_buffer: Vec::new(),
+            out_buffer: TokenString::new(),
             index: 0,
             line: 0,
             segment_map,
@@ -260,16 +260,16 @@ impl<R: BufRead> Iterator for Tokens<'_, R> {
 pub struct TokenLines<'s, R: BufRead>(Peekable<Tokens<'s, R>>);
 
 impl<R: BufRead> Iterator for TokenLines<'_, R> {
-    type Item = Result<Vec<Token>, Error>;
+    type Item = Result<TokenString, Error>;
 
-    fn next(&mut self) -> Option<Result<Vec<Token>, Error>> {
+    fn next(&mut self) -> Option<Result<TokenString, Error>> {
         // `.and(Some(()))` is needed to end the borrow of `self` created by `peek()`
         self.0.peek().and(Some(())).map(|()| {
             self.0
                 // `by_ref()` is needed because `.take_while()` consumes `self`.
                 .by_ref()
                 .take_while(|t| !matches!(t, Ok(Token::Newline)))
-                // this `.collect()` collects into `Result<Vec<Token>, Error>`
+                // this `.collect()` collects into `Result<TokenString, Error>`
                 .collect()
         })
     }

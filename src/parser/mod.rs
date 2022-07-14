@@ -78,33 +78,33 @@ mod tests {
 
     #[test]
     fn comment_line() {
-        let line = vec![Token::Slash, Token::Space, Token::Star];
-        let ty = match_line(&mut line.iter());
+        let line = [Token::Slash, Token::Space, Token::Star];
+        let ty = match_line(&mut line.into_iter());
         assert_eq!(ty, StatementType::Comment);
     }
 
     #[test]
     fn category_line() {
-        let line = vec![
+        let line = [
             Token::try_from_u8(b'a').unwrap(),
             Token::Space,
             Token::Equals,
         ];
-        let ty = match_line(&mut line.iter());
+        let ty = match_line(&mut line.into_iter());
         assert_eq!(ty, StatementType::Category);
     }
 
     #[test]
     fn rule_line() {
-        let line = vec![Token::try_from_u8(b'a').unwrap(), Token::Arrow, Token::Zero];
-        let ty = match_line(&mut line.iter());
+        let line = [Token::try_from_u8(b'a').unwrap(), Token::Arrow, Token::Zero];
+        let ty = match_line(&mut line.into_iter());
         assert_eq!(ty, StatementType::Rule);
     }
 
     #[test]
     fn error_line() {
-        let line = vec![Token::try_from_u8(b'a').unwrap()];
-        let ty = match_line(&mut line.iter());
+        let line = [Token::try_from_u8(b'a').unwrap()];
+        let ty = match_line(&mut line.into_iter());
         assert_eq!(ty, StatementType::Error);
     }
 }
