@@ -2,9 +2,12 @@
 use std::fmt;
 use std::ops::Add;
 
+mod escape;
 pub mod segment;
+pub mod string;
 pub mod tokenizer;
 
+use escape::{Escape, EscapeArgs};
 pub use segment::SegmentMap;
 pub use tokenizer::Tokens;
 
@@ -163,6 +166,28 @@ impl Token {
             _ => None,
         }
     }
+
+    fn escape(&self, args: EscapeArgs) -> Escape {
+        const SINGLE_QUOTE: u16 = b'\'' as u16;
+        const DOUBLE_QUOTE: u16 = b'\"' as u16;
+        if let Ok(enumerated) = self.as_enumerated() {
+            match enumerated {
+                b'\n' if args.escape_newline => Escape::backslash('n'),
+                b'\t' if args.escape_tab => Escape::backslash('t'),
+                _ => Escape::char(enumerated as char),
+            }
+        } else {
+            match self.0 {
+                // escaped control character
+                x @ 0..=0x7F if Self::is_enumerated(x as u8) => Escape::backslash(x as u8 as char),
+                SINGLE_QUOTE if args.escape_single_quote => Escape::backslash('\''),
+                DOUBLE_QUOTE if args.escape_double_quote => Escape::backslash('\"'),
+                // regular ascii character
+                x @ 0x20..=0x7F => Escape::char(x as u8 as char),
+                x => Escape::numeric(x),
+            }
+        }
+    }
 }
 
 impl Add<u16> for Token {
@@ -175,32 +200,19 @@ impl Add<u16> for Token {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Ok(enumerated) = self.as_enumerated() {
-            write!(f, "{}", enumerated as char)
-        } else {
-            match self.0 {
-                x @ 0..=0x7F if Self::is_enumerated(x as u8) => write!(f, "\\{}", x as u8 as char),
-                x @ 0..=0x7F => write!(f, "{}", x as u8 as char),
-                x @ 0x80..=0xFF => write!(f, "\\x{x:02x}"),
-                x => write!(f, "\\u{x:04x}"),
-            }
-        }
+        fmt::Display::fmt(&self.escape(EscapeArgs::NONE), f)
     }
 }
 
 impl fmt::Debug for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Ok(enumerated) = self.as_enumerated() {
-            write!(f, "{:?}", enumerated as char)
-        } else {
-            match self.0 {
-                x @ 0..=0x7F if Self::is_enumerated(x as u8) => {
-                    write!(f, "'\\{}'", x as u8 as char)
-                }
-                x @ 0..=0x7F => write!(f, "{:?}", x as u8 as char),
-                x @ 0x80..=0xFF => write!(f, "'\\x{x:02x}'"),
-                x => write!(f, "'\\u{x:04x}'"),
-            }
-        }
+        write!(
+            f,
+            "'{}'",
+            self.escape(EscapeArgs {
+                escape_double_quote: false,
+                ..EscapeArgs::ALL
+            }),
+        )
     }
 }
