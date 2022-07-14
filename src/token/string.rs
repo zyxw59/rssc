@@ -106,6 +106,10 @@ impl TokenString {
     pub fn clear(&mut self) {
         self.0.clear()
     }
+
+    pub fn extend_from_slice(&mut self, other: &TokenStr) {
+        self.0.extend_from_slice(other)
+    }
 }
 
 impl fmt::Debug for TokenString {
