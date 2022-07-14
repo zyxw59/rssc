@@ -10,7 +10,7 @@ use indexmap::IndexSet;
 use crate::{
     category::{Categories, Ident},
     re::{Instr, Program},
-    token::Token,
+    token::{Token, TokenStr},
     utils::BooleanExpr,
 };
 
@@ -338,7 +338,7 @@ impl fmt::Display for Category {
         if let Some(number) = self.number {
             write!(f, "{number}:")?;
         }
-        for tok in &self.name {
+        for tok in &**self.name {
             fmt::Display::fmt(tok, f)?;
         }
         f.write_str("}")
@@ -351,7 +351,7 @@ pub struct RuleMatcher {
 }
 
 impl RuleMatcher {
-    pub fn matches(&self, haystack: &[Token]) -> Vec<re::Engine> {
+    pub fn matches(&self, haystack: &TokenStr) -> Vec<re::Engine> {
         let states = self
             .search
             .exec(Default::default(), haystack.iter().copied());
@@ -392,7 +392,7 @@ impl EnvironmentMatcher {
         start: usize,
         end: usize,
         states: &mut Vec<re::Engine>,
-        string: &[Token],
+        string: &TokenStr,
     ) {
         self.before
             .exec_multiple(states, string[..start].iter().rev().copied());
@@ -412,7 +412,7 @@ fn match_boolean_expr(
     start: usize,
     end: usize,
     matches: &mut Vec<re::Engine>,
-    string: &[Token],
+    string: &TokenStr,
 ) {
     match expr {
         // leave `matches` intact

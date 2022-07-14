@@ -6,7 +6,7 @@ pub mod token;
 pub mod unicode;
 mod utils;
 
-use std::io::{self, BufRead};
+use std::io;
 
 // #[test]
 // fn rssc() {
@@ -17,21 +17,10 @@ use std::io::{self, BufRead};
 fn main() {
     let stdin = io::stdin();
     let mut segments = token::segment::SegmentMap::new();
-    /*
-    let tokens = token::Tokens::new(stdin.lock(), segments);
-    for t in tokens {
-        print!("{t:?} ");
-        if t == token::Token::from_u8(b'\n') {
-            println!();
-        }
-    }
-    */
-    for line in stdin.lock().lines() {
+    for line in token::Tokens::new(stdin.lock(), &mut segments).lines() {
         match line {
             Ok(line) => {
-                let line = line + "\n";
-                let tokens = token::Tokens::new(line.as_ref(), &mut segments);
-                println!("{:?}", tokens.collect::<Vec<_>>());
+                println!("{line:?}");
             }
             Err(err) => {
                 println!("Error: {err}");
