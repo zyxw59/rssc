@@ -262,4 +262,27 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(indices, &[&[2], &[1]]);
     }
+
+    #[test]
+    fn ambiguous_match_2() {
+        let elements = vec![
+            Some(tokenize("m")),
+            Some(tokenize("n")),
+            Some(tokenize("n")),
+            Some(tokenize("ng")),
+        ];
+        let name = tokenize("N");
+        let category = Category::new(name, elements);
+        let mut program = Program::new();
+
+        category.capturing_matcher(&mut program, 0, false);
+        println!("{program}");
+        let test_string = tokenize("ng");
+        let matches = program.exec(Default::default(), test_string);
+        let indices = matches
+            .into_iter()
+            .map(|engine| engine.category_indices.0.into_values().collect::<Vec<_>>())
+            .collect::<Vec<_>>();
+        assert_eq!(indices, &[&[3], &[1], &[2]]);
+    }
 }
