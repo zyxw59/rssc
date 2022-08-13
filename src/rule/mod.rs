@@ -6,10 +6,10 @@ use std::{
 };
 
 use indexmap::IndexSet;
+use irregex::{Instr, Program};
 
 use crate::{
     category::{Categories, Ident},
-    re::{Instr, Program},
     token::{Token, TokenStr},
     utils::BooleanExpr,
 };
@@ -81,11 +81,11 @@ impl Search {
         program: &mut Program<re::Engine>,
         categories: &Categories,
     ) -> Result<(), Error> {
-        program.push(Instr::Peek(re::Peek::ReplaceStart));
+        program.peek(re::Peek::ReplaceStart);
         if let Search::Pattern(pat) = self {
             pat.matcher(program, categories, false)?;
         }
-        program.push(Instr::Peek(re::Peek::ReplaceEnd));
+        program.peek(re::Peek::ReplaceEnd);
         Ok(())
     }
 }
@@ -185,10 +185,10 @@ impl Pattern {
         reverse: bool,
     ) -> Result<(), Error> {
         match self {
-            Pattern::Literal(tok) => program.push(Instr::Consume(re::Consume::Token(*tok))),
-            Pattern::Set(tokens) => program.push(Instr::Consume(re::Consume::Set(tokens.clone()))),
-            Pattern::Any => program.push(Instr::Consume(re::Consume::Any)),
-            Pattern::WordBoundary => program.push(Instr::Peek(re::Peek::WordBoundary)),
+            Pattern::Literal(tok) => program.consume(re::Consume::Token(*tok)),
+            Pattern::Set(tokens) => program.consume(re::Consume::Set(tokens.clone())),
+            Pattern::Any => program.push(Instr::Any),
+            Pattern::WordBoundary => program.peek(re::Peek::WordBoundary),
             Pattern::Category(cat) => {
                 if let Some(category) = categories.get(&cat.name) {
                     if let Some(slot) = cat.number {
@@ -376,7 +376,11 @@ impl RuleMatcher {
 
 impl fmt::Display for RuleMatcher {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Search:\n{}Environment:\n{}", self.search, self.environment)
+        write!(
+            f,
+            "Search:\n{}Environment:\n{}",
+            self.search, self.environment
+        )
     }
 }
 

@@ -11,5 +11,7 @@ thiserror = "1.0.31"
 unicode-normalization = "0.1"
 unicode-general-category = "0.5.1"
 
+irregex = { git = "https://github.com/zyxw59/irregex.git" }
+
 [dev-dependencies]
 utf32-lit = "1.2.0"

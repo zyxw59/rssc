@@ -23,7 +23,7 @@ impl Engine {
     }
 }
 
-impl crate::re::Engine for Engine {
+impl irregex::Engine for Engine {
     type Token = Token;
     type Consume = Consume;
     type Peek = Peek;
@@ -31,7 +31,6 @@ impl crate::re::Engine for Engine {
     fn consume(&mut self, args: &Consume, _index: usize, token: &Self::Token) -> bool {
         self.is_whitespace = token.is_whitespace();
         match args {
-            Consume::Any => true,
             Consume::Token(expect) => token == expect,
             Consume::Set(set) => set.contains(token),
             Consume::Category { slot, map } => {
@@ -56,6 +55,11 @@ impl crate::re::Engine for Engine {
             Peek::Category { slot, index } => self.category_indices.check_insert(slot, index),
         }
     }
+
+    fn any(&mut self, _index: usize, token: &Self::Token) -> bool {
+        self.is_whitespace = token.is_whitespace();
+        true
+    }
 }
 
 #[derive(Clone, Debug, Default, Hash, Eq, PartialEq)]
@@ -77,8 +81,6 @@ impl CategoryIndices {
 
 #[derive(Debug)]
 pub enum Consume {
-    /// Matches any token
-    Any,
     /// Matches the specified token
     Token(Token),
     /// Matches one of a set of tokens

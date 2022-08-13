@@ -2,8 +2,9 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use irregex::{Instr, Program};
+
 use crate::{
-    re::{Instr, Program},
     rule::re::{Consume, Engine, Peek},
     token::{Token, TokenStr, TokenString},
 };
@@ -109,7 +110,7 @@ impl Category {
                         Instr::Jump(element_match_start),
                     ]);
                 }
-                instruction_list.push(Instr::Peek(Peek::Category { slot, index: last }));
+                instruction_list.peek(Peek::Category { slot, index: last });
                 match_string(el, instruction_list, reverse);
                 instruction_list.push(Instr::Jump(jump_instr));
                 debug_assert_eq!(instruction_list.len(), next_element_start);
@@ -182,7 +183,9 @@ fn match_string(string: &TokenStr, program: &mut Program<Engine>, reverse: bool)
 
 #[cfg(test)]
 mod tests {
-    use crate::{re::Program, token::tokenizer::tokenize};
+    use irregex::Program;
+
+    use crate::token::tokenizer::tokenize;
 
     use super::Category;
 

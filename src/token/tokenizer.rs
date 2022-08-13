@@ -4,13 +4,11 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io::{self, BufRead};
 
+use irregex::{Engine, Instr, Program};
 use unicode_normalization::UnicodeNormalization;
 
 use super::{SegmentMap, Token, TokenString};
-use crate::{
-    re::{Engine, Instr, Program},
-    unicode::{is_combining_double, is_modifier},
-};
+use crate::unicode::{is_combining_double, is_modifier};
 
 #[derive(Clone, Debug, Default)]
 struct TokenizerEngine {
@@ -25,7 +23,6 @@ impl Engine for TokenizerEngine {
     fn consume(&mut self, args: &Self::Consume, _index: usize, tok: &Self::Token) -> bool {
         match args {
             Consume::Char(ch) => tok == ch,
-            Consume::Any => *tok != '\n',
             Consume::ControlChar => *tok != '\n' && Token::is_control_char(*tok),
             Consume::BaseChar => {
                 !Token::is_control_char(*tok) && *tok != '\\' && !is_modifier(*tok)
@@ -54,6 +51,10 @@ impl Engine for TokenizerEngine {
             }
         }
     }
+
+    fn any(&mut self, _index: usize, tok: &Self::Token) -> bool {
+        *tok != '\n'
+    }
 }
 
 impl Hash for TokenizerEngine {
@@ -70,8 +71,6 @@ impl Hash for TokenizerEngine {
 enum Consume {
     /// Matches a single char.
     Char(char),
-    /// Matches any character.
-    Any,
     /// Matches a control character.
     ControlChar,
     /// Matches a non-combining character.
@@ -126,7 +125,7 @@ fn matcher(segments: &SegmentMap) -> Program<TokenizerEngine> {
         Instr::Consume(Consume::Char('\n')),
         Instr::Peek(Peek::Save),
         Instr::Match,
-        Instr::Consume(Consume::Any),
+        Instr::Any,
         Instr::Jump(0), // to be set later
     ]);
     let escape_jump = prog.len() - 1;

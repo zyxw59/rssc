@@ -36,6 +36,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "irregex"
+version = "0.1.0"
+source = "git+https://github.com/zyxw59/irregex.git#c78fd7b82caf7af56b300b62998f09f58b3b3855"
+dependencies = [
+ "derivative",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -59,6 +67,7 @@ version = "0.1.0"
 dependencies = [
  "derivative",
  "indexmap",
+ "irregex",
  "thiserror",
  "unicode-general-category",
  "unicode-normalization",
