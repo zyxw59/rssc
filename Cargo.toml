@@ -2,7 +2,7 @@
 name = "rssc"
 version = "0.1.0"
 authors = ["Emily Crandall Fleischman <emilycf@mit.edu>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 derivative = "2.2.0"

@@ -456,7 +456,7 @@ mod tests {
     use crate::{
         category::{Categories, Category},
         parser::rule::Parser,
-        token::{tokenizer::tokenize_with_segment_map, SegmentMap},
+        token::{SegmentMap, tokenizer::tokenize_with_segment_map},
     };
 
     fn categories() -> (Categories, SegmentMap) {

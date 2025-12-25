@@ -28,9 +28,8 @@ where
     }
 
     fn next(&mut self) -> Option<Token> {
-        self.iter.next().map(|tok| {
+        self.iter.next().inspect(|_| {
             self.index += 1;
-            tok
         })
     }
 

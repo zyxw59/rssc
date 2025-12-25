@@ -1,5 +1,5 @@
 //! Utility functions for matching unicode characters
-use unicode_general_category::{get_general_category, GeneralCategory};
+use unicode_general_category::{GeneralCategory, get_general_category};
 
 /// Checks if a character is a base character or a modifier. A character is considered a modifier
 /// if it is in one of the following unicode classes:
@@ -8,6 +8,7 @@ use unicode_general_category::{get_general_category, GeneralCategory};
 /// - Me (Mark, Enclosing)
 /// - Mn (Mark, Non-Spacing)
 /// - Sk (Symbol, Modifier)
+///
 /// Or, if it is a superscript or subscript
 pub fn is_modifier(c: char) -> bool {
     matches!(c,

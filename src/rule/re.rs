@@ -50,7 +50,7 @@ impl irregex::Engine for Engine {
             Peek::ReplaceEnd => self.replace_end.replace(index).is_none(),
             Peek::WordBoundary => {
                 // end of string is considered whitespace
-                self.is_whitespace ^ token.map_or(true, |&tok| tok.is_whitespace())
+                self.is_whitespace ^ token.is_none_or(|&tok| tok.is_whitespace())
             }
             Peek::Category { slot, index } => self.category_indices.check_insert(slot, index),
         }
